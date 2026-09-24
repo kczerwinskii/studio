@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <title>Studio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="pasek">
+    <div class="logo">STUDIO</div>
+    <nav>
+      <button class="zakladka aktywna" data-widok="analiza"><span class="ikona">▤</span>Analiza</button>
+      <button class="zakladka" data-widok="research"><span class="ikona">⌕</span>Research</button>
+      <button class="zakladka" data-widok="publikacje"><span class="ikona">▦</span>Publikacje</button>
+    </nav>
+    <div class="pasek-dol">
+      <button class="zakladka" data-widok="ustawienia"><span class="ikona">⚙</span>Ustawienia</button>
+      <div class="token-stan" id="token-stan">…</div>
+    </div>
+  </aside>
+
+  <main>
+    <section class="widok" id="widok-analiza">
+      <header class="naglowek">
+        <div>
+          <h1>Analiza rolek</h1>
+          <div class="pod" id="analiza-pod">Brak danych. Pobierz je z Instagrama.</div>
+        </div>
+        <div class="akcje">
+          <button class="przycisk zloty" id="pobierz">Pobierz nowe dane</button>
+        </div>
+      </header>
+
+      <div class="postep ukryty" id="postep">
+        <div class="postep-pasek"><div class="postep-wypelnienie" id="postep-wypelnienie"></div></div>
+        <div class="postep-opis" id="postep-opis"></div>
+      </div>
+
+      <div class="kafelki" id="kafelki"></div>
+
+      <div class="filtry">
+        <input type="search" id="szukaj" placeholder="Szukaj rolki">
+        <select id="filtr">
+          <option value="wszystkie">Wszystkie</option>
+          <option value="powyzej">Powyżej mediany</option>
+          <option value="ponizej">Poniżej mediany</option>
+          <option value="sygnal">Z sygnałem</option>
+          <option value="bez_czasu">Bez czasu oglądania</option>
+        </select>
+        <label class="przelacznik"><input type="checkbox" id="tylko-rolki" checked> tylko rolki</label>
+        <span class="licznik" id="licznik"></span>
+      </div>
+
+      <div class="tabela-obszar">
+        <table class="tabela" id="tabela">
+          <thead>
+            <tr>
+              <th data-sort="data" class="w-data">Data</th>
+              <th data-sort="tytul">Rolka</th>
+              <th data-sort="dlugosc" class="w-liczba">Dł.</th>
+              <th data-sort="retencja" class="w-liczba">Retencja</th>
+              <th data-sort="indeks" class="w-liczba">Indeks</th>
+              <th data-sort="pominiecia" class="w-liczba" title="Odsetek wyświetleń porzuconych w pierwszych 3 sekundach">Pomin. 3 s</th>
+              <th data-sort="zapisania" class="w-liczba">Zapisy</th>
+              <th data-sort="udostepnienia" class="w-liczba">Udostępnienia</th>
+              <th data-sort="obserwujacy" class="w-liczba">Obserw.</th>
+              <th data-sort="wyswietlenia" class="w-liczba">Wyśw.</th>
+              <th class="w-sygnal">Sygnał</th>
+            </tr>
+          </thead>
+          <tbody id="wiersze"></tbody>
+        </table>
+        <div class="pusto ukryty" id="pusto">
+          <p>Nie ma jeszcze żadnych rolek.</p>
+          <p class="pod">Kliknij „Pobierz nowe dane”. Pierwsze pobranie mierzy długość każdej rolki, więc potrwa kilka minut.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="widok ukryty" id="widok-research">
+      <header class="naglowek"><div><h1>Research</h1><div class="pod">Cudze rolki z Twojej niszy</div></div></header>
+      <div id="research-tresc">
+        <div class="plansza">
+          <p>Tu będzie lista kont do obserwowania i detektor rolek, które robią kilka razy więcej niż zwykle u danego twórcy. Zakładka w budowie.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="widok ukryty" id="widok-publikacje">
+      <header class="naglowek"><div><h1>Publikacje</h1><div class="pod">Planowanie i wysyłka rolek</div></div></header>
+      <div id="publikacje-tresc"></div>
+    </section>
+
+    <section class="widok ukryty" id="widok-ustawienia">
+      <header class="naglowek"><div><h1>Ustawienia</h1><div class="pod">Połączenie z Instagramem</div></div></header>
+
+      <div class="plansza">
+        <h2>Konto</h2>
+        <div class="konto" id="konto">Brak połączenia.</div>
+      </div>
+
+      <div class="plansza">
+        <h2>Token dostępu</h2>
+        <div class="pod" id="token-opis"></div>
+        <textarea id="token-pole" rows="3" placeholder="Wklej token z Graph API Explorer (zaczyna się od EAA)"></textarea>
+        <div class="akcje">
+          <button class="przycisk zloty" id="token-zapisz">Zapisz token</button>
+          <button class="przycisk" id="token-sprawdz">Sprawdź ważność</button>
+          <a class="przycisk" id="token-link" href="https://developers.facebook.com/tools/explorer/?app_id=1823206525790813" target="_blank" rel="noopener">Otwórz Graph API Explorer</a>
+        </div>
+        <div class="komunikat ukryty" id="token-komunikat"></div>
+      </div>
+
+      <div class="plansza" id="youtube-plansza">
+        <h2>YouTube</h2>
+        <div class="pod">Klucz OAuth z Google Cloud (projekt „Kuba Studio", klient typu Desktop). Wklej oba pola i zapisz, potem „Połącz z YouTube".</div>
+        <input type="text" id="yt-client-id" placeholder="Client ID (…apps.googleusercontent.com)" autocomplete="off">
+        <input type="password" id="yt-client-secret" placeholder="Client secret" autocomplete="off">
+        <div class="akcje">
+          <button class="przycisk zloty" id="yt-klient-zapisz">Zapisz klucz YouTube</button>
+          <span class="pod" id="yt-klient-stan"></span>
+        </div>
+        <div id="youtube-ustawienia"></div>
+      </div>
+
+      <div class="plansza">
+        <h2>App secret</h2>
+        <div class="pod">Z ustawień aplikacji Meta (App settings, Podstawowe, „Show”). Dzięki niemu token jest wymieniany na wersję ważną 60 dni.</div>
+        <input type="password" id="secret-pole" placeholder="32 znaki" autocomplete="off">
+        <div class="akcje">
+          <button class="przycisk zloty" id="secret-zapisz">Zapisz app secret</button>
+          <span class="pod" id="secret-stan"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="tlo-karty ukryty" id="tlo-karty">
+    <div class="karta" id="karta" role="dialog" aria-modal="true">
+      <button class="zamknij" id="karta-zamknij" aria-label="Zamknij">×</button>
+      <div class="karta-tresc" id="karta-tresc"></div>
+    </div>
+  </div>
+
+  <script src="analiza.js"></script>
+  <script src="research.js"></script>
+  <script src="publikacje.js"></script>
+  <script src="youtube.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+Gotowe: przeniosłem silnik do `app/analiza.js` i dodałem test porównujący wyniki z Pythonem.
+
+`node narzedzia/test_analiza.js` przeszedł: **OK**, kod 0. Wynik i uwagi dopisałem do pliku zadania.

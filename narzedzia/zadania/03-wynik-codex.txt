@@ -1,0 +1,3 @@
+Przegląd zakończony. Dopisałem 12 uwag z podpisem Codex do `narzedzia/DYSKUSJA.md` i dwa zdania podsumowania do pliku zadania.
+
+Osiem prób lokalnych potwierdziło błędy; kontrola składni przeszła. Moduł wymaga poprawek przed niezawodną publikacją. Kodu nie zmieniałem, sieci nie używałem.

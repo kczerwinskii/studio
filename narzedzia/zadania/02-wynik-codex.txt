@@ -1,0 +1,5 @@
+Gotowe. Zaimplementowałem backend, frontend i testy Research w podanej kolejności.
+
+`node narzedzia/test_research.js`: **OK, 9 grup testów**, kod 0. Wynik dopisałem do pliku zadania.
+
+Bez użycia sieci. Żywe API i wygląd w Electronie pozostają niesprawdzone.

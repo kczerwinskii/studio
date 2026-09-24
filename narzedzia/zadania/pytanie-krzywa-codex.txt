@@ -1,0 +1,14 @@
+**Na 24.09.2026 nie znalazłem potwierdzonej, oficjalnej ani autoryzowanej „półoficjalnej” drogi pobrania pełnej krzywej retencji organicznej rolki z Instagrama.**
+
+- **Instagram Graph API i Instagram Login:** dostępne metryki obejmują `ig_reels_avg_watch_time`, `ig_reels_video_view_total_time` i `reels_skip_rate`, ale nie udokumentowaną tablicę retencji dla kolejnych sekund. [Oficjalny SDK Meta](https://github.com/facebook/facebook-python-business-sdk/blob/main/facebook_business/adobjects/insightsresult.py)
+- Średnia, suma czasu i wskaźnik pomijania nie wystarczają matematycznie do odtworzenia krzywej, bo wiele różnych przebiegów oglądania daje te same wartości.
+- **Edits, Business Suite web i CSV:** nie znalazłem potwierdzonego publicznego API ani eksportu sekundowej retencji Instagram Reels; obecność wykresu w interfejsie nie oznacza dostępności jego danych dla integracji.
+- **Threads:** jego API udostępnia statystyki treści Threads, nie stanowi wejścia do retencji Instagram Reels. [Dokumentacja Meta](https://www.postman.com/meta/threads/folder/2tx5bse/read-and-manage-threads)
+- **Marketing API ma więcej niż kwartyle:** oficjalny SDK zawiera `video_play_curve_actions`, `video_play_retention_graph_actions` oraz `video_play_retention_0_to_15s_actions` i `video_play_retention_20_to_60s_actions`. [SDK Ads Insights](https://github.com/facebook/facebook-python-business-sdk/blob/main/facebook_business/adobjects/adsinsights.py)
+- Sama obecność tych pól nie gwarantuje jednak, że konkretna reklama Instagram Reels zwróci wszystkie histogramy ani pełną rozdzielczość sekundową przez cały film.
+- **Promowanie istniejącej rolki pozwala zbierać statystyki jej emisji reklamowej, ale nie odblokowuje wcześniejszej ani bieżącej retencji organicznych odtworzeń**; wyniki reklamy odczytuje się przez `/{ad_id}/insights`. [Ads Insights](https://developers.facebook.com/docs/marketing-api/reference/adgroup/insights/)
+- **Do sprawdzenia eksperymentalnie:** czy konkretna promowana rolka zwróci pola krzywej przy małym budżecie; nie mam potwierdzonego minimalnego wydatku ani gwarancji dostępności tych danych.
+- Nawet jeśli je zwróci, będzie to pomiar widowni pozyskanej reklamą, więc traktowanie go jako krzywej organicznej byłoby nieuprawnionym założeniem.
+- **Nie należy automatyzować prywatnych endpointów aplikacji mobilnej ani wewnętrznego GraphQL Business Suite bez autoryzacji Meta:** takie obchodzenie publicznego API nie jest drogą „półoficjalną”, a nieautoryzowane zbieranie danych narusza zasady i może skutkować blokadą konta. [Stanowisko Meta](https://about.fb.com/news/2022/07/how-meta-safeguards-people-against-clone-sites/)
+
+Ograniczenie weryfikacji: część stron dokumentacji Meta zwracała błąd 429, dlatego brak drogi dla organicznej retencji oznacza **brak potwierdzonego rozwiązania**, nie dowód nieistnienia prywatnego programu partnerskiego.

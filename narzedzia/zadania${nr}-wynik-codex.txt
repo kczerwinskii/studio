@@ -1,0 +1,3 @@
+Wykonane: moduł TikToka, panel ustawień i test offline.
+
+17 testów przeszło, składnia poprawna. Wynik dopisałem do zadania, a instrukcje integracji do `DYSKUSJA.md`. Bez sieci, wywołań API i zmian w plikach wspólnych.
