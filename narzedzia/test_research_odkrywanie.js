@@ -35,11 +35,16 @@ async function test(){
  assert.equal(porownaj(post,[...historia.slice(0,7),historia[0]]).krotnosc_wyswietlen,null,"Minimum 8 wcześniejszych rolek");
  assert.equal(porownaj(post,historia.map(p=>({...p,zrodlo_historii:"popular"}))).krotnosc_wyswietlen,null);
  assert.equal(porownaj(post,historia.map(p=>({...p,wyswietlenia:0}))).krotnosc_wyswietlen,null);
- const f={jezyk:"pl",prog:3,okres:7,niepelne:false}, teraz=Date.parse("2026-09-24T10:00:00Z");
+ const f={jezyk:"pl",prog:3,okres:7,min_wyswietlen:0,niepelne:false}, teraz=Date.parse("2026-09-24T10:00:00Z");
  assert.equal(filtruj([{...post,...porownaj(post,historia)}],f,teraz).posty.length,1);
  assert.equal(filtruj([{...post,data:null,krotnosc_wyswietlen:null}],f,teraz).posty.length,0);
  assert.equal(filtruj([{...post,data:null,krotnosc_wyswietlen:null}],{...f,niepelne:true},teraz).posty[0].braki_filtrow.length,2);
  assert.equal(filtruj([{...post,krotnosc_wyswietlen:2}],{...f,niepelne:true},teraz).posty.length,0);
+ // Minimum wyswietlen: 50 tys. odrzuca rolke z 50000-1, brak licznika to brak danych, nie zero.
+ const zMin={...f,min_wyswietlen:50000},duza={...post,...porownaj(post,historia)};
+ assert.equal(filtruj([duza],zMin,teraz).posty.length,1);
+ const maloWys=filtruj([{...duza,wyswietlenia:49999}],zMin,teraz);assert.equal(maloWys.posty.length,0);assert.equal(maloWys.powody.wyswietlenia,1);
+ assert.equal(filtruj([{...duza,wyswietlenia:null}],{...zMin,niepelne:true},teraz).posty[0].braki_filtrow.includes("wyświetlenia"),true);
  const bezJezyka=filtruj([{...post,...porownaj(post,historia),jezyk:null}],{...f,niepelne:true},teraz);assert.equal(bezJezyka.posty.length,0,"Nieznany język nie jest pokazywany nawet z opcją niepełnych");assert.equal(bezJezyka.niepelne,1);
  const p=normalizuj({kod:"Abcdefgh",opis:"Your muscle growth: what works? Save this workout for your training.",licznik:"50 tys.",miniatura:"javascript:alert(1)",film:"https://evil.test/a",data:null},"muscle growth","https://www.instagram.com/popular/muscle-growth/");
  assert.equal(p.udostepnienia,null);assert.equal(p.komentarze,null);assert.equal(p.miniatura,"");assert.equal(p.film,"");assert.equal(p.data,null);

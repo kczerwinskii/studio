@@ -29,7 +29,8 @@ const rolka=(nr,wiek=1,views=400,opis="en")=>({id:String(nr),permalink:"https://
   }};
   async function api(trasa="",cialo){const r={};await obsluzOdkrywanie({method:cialo?"POST":"GET",cialo},r,new URL("http://localhost/api/research/odkrywanie"+trasa),n);return r}
   async function koniec(){for(let i=0;i<200;i++){const d=(await api()).dane;if(!d.postep.w_toku)return d;await new Promise(r=>setTimeout(r,1))}throw Error("Brak zakończenia")}
-  const warunki={temat:"hipertrofia",frazy:["hipertrofia"],filtry:{jezyk:"en",okres:30,prog:3}};
+  const warunki={temat:"hipertrofia",frazy:["hipertrofia"],filtry:{jezyk:"en",okres:30,prog:3,min_wyswietlen:0}};
+  assert.equal((await api("/szukaj",{...warunki,cel:30,filtry:{...warunki.filtry,min_wyswietlen:1234}})).kod,400,"Minimum wyświetleń tylko z listy");
   assert.equal((await api("/szukaj",{...warunki,cel:30,filtry:{...warunki.filtry,jezyk:"both"}})).kod,400,"Tylko polski albo angielski");
   assert.equal((await api("/szukaj",{...warunki,cel:3})).kod,400);
   await api("/szukaj",{...warunki,cel:30});let d=await koniec();

@@ -5,6 +5,10 @@ const swieze=s=>Number.isFinite(Date.parse(s))&&Date.now()-Date.parse(s)<6*36000
 const teraz=()=>new Date().toISOString();
 function wOkresie(p,filtry){const wiek=Date.now()-Date.parse(p.data);return Number.isFinite(wiek)&&wiek>=0&&(!filtry.okres||wiek<=filtry.okres*86400000)}
 function jezykPasuje(p,filtry){return p.jezyk!=="inne"&&(!p.jezyk||filtry.jezyk==="both"||p.jezyk===filtry.jezyk)}
+// Strona hashtagu nie daje wyswietlen, ale daje polubienia. Rolka z 100 tys. wyswietlen ma zwykle ponad 500 polubien
+// (0,5% to bardzo ostrozny prog). Ponizej tego nie wydajemy zapytan Meta na historie autora. Ukryte polubienia (null) przechodza.
+function rokuje(p,filtry){const min=Number(filtry.min_wyswietlen)||0;if(!min)return true;if(jestLiczbaW(p.wyswietlenia))return p.wyswietlenia>=min;return p.polubienia==null||p.polubienia>=min/200}
+const jestLiczbaW=w=>typeof w==="number"&&Number.isFinite(w)&&w>=0;
 // Rolka bez rozpoznawalnego opisu (same hashtagi, emoji) dostaje jezyk dominujacy w historii autora.
 // To szacunek, oznaczony jezyk_zrodlo "autor"; opis z rozpoznanym jezykiem ma pierwszenstwo.
 function uzupelnijJezykAutora(d,autor,historia){
@@ -73,12 +77,12 @@ async function szukajPuli(n,{czytaj,zapisz,normalizuj,scalSzczegoly,szczegoly,po
   // Najpierw rozwijamy znane, powiazane z tematem historie; nie trzeba ponownie czytac stron rolek.
   if(Date.parse(d.meta_limit_do)>Date.now()){postep.powod="limit";return {powod:"limit",cel,filtry,potwierdzone:postep.potwierdzone,kandydaci:postep.kandydaci,autorzy:0,strony:0}}
   const aktualne=czytaj();
-  const znani=[...new Set(aktualne.ostatnie.map(id=>aktualne.posty[id]).filter(p=>p?.username&&wOkresie(p,filtry)&&jezykPasuje(p,filtry)).sort((a,b)=>Number(!!b.jezyk)-Number(!!a.jezyk)).map(p=>p.username))];
+  const znani=[...new Set(aktualne.ostatnie.map(id=>aktualne.posty[id]).filter(p=>p?.username&&wOkresie(p,filtry)&&jezykPasuje(p,filtry)&&rokuje(p,filtry)).sort((a,b)=>Number(!!b.jezyk)-Number(!!a.jezyk)||(b.polubienia??-1)-(a.polubienia??-1)).map(p=>p.username))];
   for(const nazwa of znani){if(postep.anuluj||przerwana||postep.potwierdzone>=cel)break;await autor(nazwa)}
   while(!postep.anuluj&&!przerwana){
     if(odswiez()){powod="cel";break}
     d=czytaj();
-    const nastepne=d.ostatnie.map(id=>d.posty[id]).filter(p=>p&&!odwiedzone.has(p.id)&&wOkresie(p,filtry)&&jezykPasuje(p,filtry)&&d.historie[p.username]?.jezyk_autora!=="inne").sort((a,b)=>Number(!!b.jezyk)-Number(!!a.jezyk)||(b.polubienia??-1)-(a.polubienia??-1));
+    const nastepne=d.ostatnie.map(id=>d.posty[id]).filter(p=>p&&!odwiedzone.has(p.id)&&wOkresie(p,filtry)&&jezykPasuje(p,filtry)&&rokuje(p,filtry)&&d.historie[p.username]?.jezyk_autora!=="inne").sort((a,b)=>Number(!!b.jezyk)-Number(!!a.jezyk)||(b.polubienia??-1)-(a.polubienia??-1));
     for(const p of nastepne){
       if(postep.anuluj||przerwana||postep.potwierdzone>=cel)break;
       if(probyAutora>=budzetAutorow){powod="budzet";break}

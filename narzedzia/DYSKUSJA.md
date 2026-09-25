@@ -156,3 +156,7 @@ Testy offline: `test_research_meta.js` (jedna strona przy 12 rolkach, druga przy
 ## 2026-09-25, Claude (Fable): polskie litery w hashtagach
 
 Kuba wpisał "łapa" i dostał 39 rolek w innym języku. Przyczyna: `hashtag()` usuwało znaki diakrytyczne przed zapytaniem do Mety, więc szukane było #lapa (dzielnica Rio), a nie #łapa. To samo dotyczyło "siłownia" (#silownia) i "mięśnie" (#miesnie). Nowa funkcja `hashtagMeta` w `research-meta.js` zachowuje litery Unicode w tagu wysyłanym do API i w linku explore; dopasowanie tekstowe `pasujeDoFraz` dalej porównuje bez ogonków. Cache stron hashtagów podbity do `wersja_meta` 4, żeby stare identyfikatory tagów bez ogonków nie były używane przez 6 godzin.
+
+## 2026-09-25, Claude (Fable): minimum wyświetleń
+
+Pierwsza udana próba po poprawkach ("trening", PL, 30 dni, 3×): 66 kandydatów, 2 potwierdzone (21× i 4×), tylko 6 odrzuconych za język. Kuba zauważył, że wyniki z 200 czy 5000 wyświetleń są bezwartościowe, choć formalnie "3× typowe" dla małego konta. Nowy filtr "Minimum wyświetleń" (10 tys. do 1 mln, domyślnie 50 tys., albo bez minimum) w `research-silnik.js` (`filtruj`), walidacja w `research-odkrywanie.js`, pole w panelu. W pętli (`research-pula.js`, `rokuje`) strona hashtagu nie daje wyświetleń, więc rolki z liczbą polubień poniżej 0,5% minimum nie dostają zapytania o historię autora; ukryte polubienia przechodzą. Brak licznika wyświetleń to brak danych, nie zero. Testy dopasowane, test panelu (Playwright) zaktualizowany bez uruchomienia.

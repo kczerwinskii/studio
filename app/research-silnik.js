@@ -89,7 +89,7 @@
   }
   function filtruj(posty, filtry, teraz = Date.now()) {
     let niepelne = 0, odrzucone = 0;
-    const powody={jezyk:0,okres:0,prog:0};
+    const powody={jezyk:0,okres:0,prog:0,wyswietlenia:0};
     const wynik = [];
     for (const post of posty) {
       const braki = [], wiek = teraz - Date.parse(post.data);
@@ -101,6 +101,11 @@
       if (Number(filtry.okres)) {
         if (!Number.isFinite(wiek)) braki.push("data publikacji");
         else if (wiek < 0 || wiek > Number(filtry.okres)*86400000) { odrzucone++; powody.okres++; continue; }
+      }
+      // Skala: rolka 3x typowa dla konta z 200 wyswietlen nikogo nie interesuje. Minimum wyswietlen odcina drobnicę.
+      if (Number(filtry.min_wyswietlen)) {
+        if (!jestLiczba(post.wyswietlenia)) braki.push("wyświetlenia");
+        else if (post.wyswietlenia < Number(filtry.min_wyswietlen)) { odrzucone++; powody.wyswietlenia++; continue; }
       }
       if (Number(filtry.prog)) {
         if (!jestLiczba(post.krotnosc_wyswietlen)) braki.push("historia wyświetleń");
