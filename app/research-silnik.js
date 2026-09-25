@@ -18,17 +18,56 @@
     if (!grupa) return { frazy: tekst ? [tekst] : [], przetlumaczone: false };
     return { frazy: [...new Set([...(jezyk !== "en" ? grupa.pl : []), ...(jezyk !== "pl" ? grupa.en : [])])], przetlumaczone: true };
   }
+  // Rozpoznawanie jezyka opisu. Wynik: "pl", "en", "inne" albo null (za malo danych).
+  // Sygnaly: alfabet (dewanagari, cyrylica itd. = inne), polskie znaki diakrytyczne, slowa funkcyjne 10 jezykow.
+  // Angielskie hashtagi nie czynia opisu angielskim: tagi sa usuwane, liczy sie tresc. Polskie znaki w tagach
+  // (#siłownia) sa slabym sygnalem PL, bo zaden inny jezyk ich nie uzywa.
+  const slowaJezykow = {
+    pl: "sie nie jest ktory ktora ktore ktorych jak ale tylko dla jesli jezeli czy moze bedzie byc jeszcze tego tym tej ten od po przy przez bez juz zeby aby bardzo wiecej mniej kazdy kazda kazde swoje swoj swoja twoj twoje twoja moj moje moja mam masz mamy macie byl byla bylo byly oraz albo lub gdy kiedy dlaczego tak nic cos ktos trzeba mozna warto chcesz wiesz robisz zrob zapisz sprawdz tutaj teraz dzis dzisiaj zawsze nigdy wszystko wszystkie wszyscy ile dlatego wtedy potem zanim przed nad pod wsrod bardziej najbardziej nawet takze rowniez wlasnie dobrze zle duzo malo tydzien tygodniu miesiac miesiecy lat trening treningu treningi treningow cwiczenia cwiczenie cwiczen miesnie miesni sylwetka sylwetki posladki posladkow nogi plecy barki klatka brzuch redukcja redukcji masa masy dieta diety sila sily silownia silowni powtorzen serii serie efekty efektow wyniki",
+    en: "the and you your this that with for are not but what how why when have has was were will can just more than from they them their about into if my we our all out get one does don doesn isn aren didn here there these those which because every most some any so too very then also should would could been being make makes made need needs want wants like keep going need most only really still while after before over under between through during each both few other same such workout workouts exercise exercises muscles legs glutes gains reps sets weight weights training gym",
+    es: "que para los las del una uno con por como pero mas muy este esta esto estos estas ese esa eso tu tus sus son estan hay si ya aqui cuando donde porque todo todos toda todas tambien cada entrenamiento entrenamientos ejercicio ejercicios musculo musculos piernas gluteos rutina rutinas hacer haces puedes quieres sobre sin nos nosotros lo le les al el la en es un se mi mis nunca siempre hoy ahora mejor mejores mucho poco bien mal semana semanas dias fuerza gimnasio cuerpo",
+    pt: "voce voces nao sim para com uma um isso esse essa este esta mais muito seu sua seus suas tem estao sao foi ser aqui quando onde porque tudo todos todas tambem cada treino treinos exercicio exercicios musculo musculos musculacao pernas gluteos fazer faz pode quer sobre sem nos ele ela eles elas da das dos na nas meu minha nunca sempre hoje agora melhor melhores bem semana semanas dias forca academia corpo",
+    de: "und der die das ist nicht ich du dich dein deine mit fur auf ein eine einen einem auch wenn dann wie oder aber mehr sehr hier jetzt noch sich sind wird werden kann kannst muss musst ubungen ubung muskeln muskelaufbau beine rucken schultern aus bei zu zum zur vom im am nur immer nie heute besser viel wenig woche wochen kraft",
+    fr: "les des une est pas pour vous votre vos avec dans sur que qui ce cette ces mais plus tres ici comme quand ou aussi chaque entrainement exercice exercices musculation muscles jambes fessiers faire peut veux sans nous ils elle il le la en du au aux et je tu ne ton ta tes son sa ses notre jamais toujours aujourd maintenant mieux beaucoup peu semaine semaines force salle corps",
+    it: "che per con non una uno del della degli delle gli sono questo questa questi anche come quando dove perche tutto tutti ogni allenamento allenamenti esercizio esercizi muscoli gambe glutei fare puoi vuoi senza noi loro nel nella dei ma se il lo la le un di da al ed piu molto qui ora adesso mai sempre oggi meglio poco settimana settimane forza palestra corpo",
+    tr: "ve bir bu icin ile gibi daha cok her ne ama veya degil var yok olan olarak antrenman egzersiz kas kaslar bacak kalca yapmak yap sen siz ben biz sizin senin bunu sonra once hem hic hep bugun simdi daha iyi hafta gun vucut spor salonu",
+    hi: "hai hain ke ki ko ka nahi nahin aur kya yeh ye woh wo liye karo kare karna karne bhi toh hum tum aap apna apni apne mein par bahut sab kuch koi jab tab kaise kyun kyon sahi galat roz din sirf lekin phir abhi kabhi hamesha",
+    id: "yang dan untuk dengan ini itu tidak bisa kamu anda saya kita kalian juga lebih sangat setiap latihan otot kaki cara harus jangan sudah belum akan ada dari ke di pada atau tapi karena jadi agar supaya selalu sekarang hari minggu tubuh",
+    nl: "het een niet van voor met jij je jouw ook maar meer zeer hier als dan wordt kan kun moet spieren benen oefening oefeningen dit deze zijn naar bij om op uit over wat hoe waarom nooit altijd vandaag beter veel weinig week weken kracht lichaam",
+  };
+  const zbioryJezykow = Object.fromEntries(Object.entries(slowaJezykow).map(([j, s]) => [j, new Set(s.split(" "))]));
+  const polskieZnaki = /[ąęłżźćńś]/g, obceMocne = /[ñ¿¡ãõçßüöäıığşřěůőűțșđ]/g, obceSlabe = /[éáíúàèêôâîùûëïœæ]/g;
   function jezykOpisu(opis) {
-    // Angielskie hashtagi nie czynia opisu angielskim. Oceniaj tresc, nie tagi i adresy.
-    const tresc=String(opis||"").replace(/https?:\/\/\S+/g,"").replace(/[#@][\p{L}\p{N}_]+/gu,"");
-    const litery=tresc.match(/\p{L}/gu)||[];
-    const innePismo=litery.filter(l=>! /\p{Script=Latin}/u.test(l)).length;
-    if(litery.length>=12 && innePismo/litery.length>.6)return "inne";
-    if(litery.length>=12 && innePismo/litery.length>.25)return null;
-    const tekst = " " + uprosc(tresc).replace(/[^a-z ]/g, " ") + " ";
-    const slowa = { pl: ["sie", "miesnie", "treningu", "ktory", "twoj", "sylwetki", "cwiczenia", "wiecej", "zeby", "jest", "nie"], en: ["the", "your", "muscle", "growth", "with", "you", "this", "and", "training", "workout", "for"], inne: ["voce", "para", "muscular", "treino", "musculacao", "que", "uma", "como", "los", "las", "ejercicios", "entrenamiento"] };
-    const wynik = Object.entries(slowa).map(([jezyk, lista]) => ({ jezyk, punkty: lista.filter(s => tekst.includes(" " + s + " ")).length })).sort((a, b) => b.punkty - a.punkty);
-    return wynik[0].punkty >= 3 && wynik[0].punkty > wynik[1].punkty + 1 ? wynik[0].jezyk : null;
+    const surowy = String(opis || "").replace(/https?:\/\/\S+/g, "");
+    const tagi = (surowy.match(/[#@][\p{L}\p{N}_]+/gu) || []).join(" ").toLowerCase();
+    const tresc = surowy.replace(/[#@][\p{L}\p{N}_]+/gu, "").toLowerCase();
+    const litery = tresc.match(/\p{L}/gu) || [];
+    const innePismo = litery.filter(l => !/\p{Script=Latin}/u.test(l)).length;
+    if (innePismo >= 3) return "inne";
+    const zliczaj = (tekst, wzor) => (tekst.match(wzor) || []).length;
+    const plZnaki = Math.min(3, zliczaj(tresc, polskieZnaki)) + Math.min(2, zliczaj(tagi, polskieZnaki));
+    const obceZnaki = Math.min(3, zliczaj(tresc, obceMocne) * 2 + zliczaj(tresc, obceSlabe)) + Math.min(2, zliczaj(tagi, obceMocne));
+    const slowa = uprosc(tresc).replace(/[^a-z ]/g, " ").split(" ").filter(Boolean);
+    const punkty = { pl: plZnaki, en: 0, inne: obceZnaki };
+    const trafienia = {};
+    for (const slowo of slowa) for (const [jezyk, zbior] of Object.entries(zbioryJezykow)) if (zbior.has(slowo)) trafienia[jezyk] = (trafienia[jezyk] || 0) + 1;
+    // Slowa w tagach: polskie i obce tagi sa specyficzne dla jezyka (#siłownia, #treino), angielskie sa uniwersalne.
+    const slowaTagow = uprosc(tagi).replace(/[^a-z ]/g, " ").split(" ").filter(Boolean);
+    const trafieniaTagow = {};
+    for (const slowo of slowaTagow) for (const [jezyk, zbior] of Object.entries(zbioryJezykow)) if (jezyk !== "en" && zbior.has(slowo)) trafieniaTagow[jezyk] = (trafieniaTagow[jezyk] || 0) + 1;
+    punkty.pl += (trafienia.pl || 0) + Math.min(2, trafieniaTagow.pl || 0); punkty.en += trafienia.en || 0;
+    punkty.inne += Math.min(2, Math.max(0, ...Object.entries(trafieniaTagow).filter(([j]) => j !== "pl").map(([, n]) => n)));
+    punkty.inne += Math.max(0, ...Object.entries(trafienia).filter(([j]) => j !== "pl" && j !== "en").map(([, n]) => n));
+    const ranking = Object.entries(punkty).sort((a, b) => b[1] - a[1]);
+    return ranking[0][1] >= 2 && ranking[0][1] > ranking[1][1] ? ranking[0][0] : null;
+  }
+  // Dominujacy jezyk autora na podstawie jego rolek. Minimum 3 rozpoznane opisy i 60% przewagi.
+  function jezykAutora(posty) {
+    const liczby = { pl: 0, en: 0, inne: 0 };
+    for (const p of posty || []) if (p && p.jezyk in liczby && p.jezyk_zrodlo !== "autor") liczby[p.jezyk]++;
+    const razem = liczby.pl + liczby.en + liczby.inne;
+    const [jezyk, n] = Object.entries(liczby).sort((a, b) => b[1] - a[1])[0];
+    return razem >= 3 && n / razem >= 0.6 ? jezyk : null;
   }
   const jestLiczba = w => typeof w === "number" && Number.isFinite(w) && w >= 0;
   function mediana(liczby) { const a = liczby.filter(jestLiczba).sort((a,b) => a-b), n = a.length; return n ? n % 2 ? a[(n-1)/2] : (a[n/2-1]+a[n/2])/2 : null; }
@@ -63,7 +102,7 @@
     }
     return { posty: wynik.sort((a,b)=>(b.krotnosc_wyswietlen ?? -1)-(a.krotnosc_wyswietlen ?? -1)), niepelne, odrzucone, powody };
   }
-  const funkcje = { rozszerz, jezykOpisu, mediana, porownaj, filtruj, uprosc };
+  const funkcje = { rozszerz, jezykOpisu, jezykAutora, mediana, porownaj, filtruj, uprosc };
   if (typeof module !== "undefined" && module.exports) module.exports = funkcje;
   else korzen.ResearchSilnik = funkcje;
 })(typeof window === "undefined" ? globalThis : window);

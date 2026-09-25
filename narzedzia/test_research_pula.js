@@ -1,7 +1,8 @@
 "use strict";
 const assert=require("assert/strict"),{obsluzOdkrywanie}=require("../moduly/research-odkrywanie"),meta=require("../moduly/research-meta");
 const dzien=d=>new Date(Date.now()-d*86400000).toISOString();
-const rolka=(nr,wiek=1,views=400)=>({id:String(nr),permalink:"https://www.instagram.com/reel/Target"+String(nr).padStart(4,"0")+"/",timestamp:dzien(wiek),caption:"Your muscle growth and training for you #hipertrofia",view_count:views});
+const opisy={en:"Your muscle growth and training for you #hipertrofia",es:"Rutina de hipertrofia para piernas, guarda este video #hipertrofia",pl:"Trening na masę, który możesz zrobić w domu #hipertrofia",brak:"#hipertrofia 🔥"};
+const rolka=(nr,wiek=1,views=400,opis="en")=>({id:String(nr),permalink:"https://www.instagram.com/reel/Target"+String(nr).padStart(4,"0")+"/",timestamp:dzien(wiek),caption:opisy[opis],view_count:views});
 (async()=>{
   // Rzeczywisty ksztalt stronicowania Business Discovery: tylko paging.cursors.after.
   let wywolania=0;
@@ -13,15 +14,18 @@ const rolka=(nr,wiek=1,views=400)=>({id:String(nr),permalink:"https://www.instag
   const czesc=await meta.pobierzProfil({token:()=>"test",ustawienia:()=>({ig_id:"1"}),graph:async()=>{
     if(proby++)throw Object.assign(new Error("prywatna tresc"),{kod:4});return {business_discovery:{media:{data:[rolka(3)],paging:{cursors:{after:"DALSZA"}}}}};
   }},"trener",{strony:5});assert.equal(czesc.posty.length,1);assert(czesc.ostrzezenie.blokada);assert(!JSON.stringify(czesc).includes("prywatna"));
-  const pamiec=new Map(),zapytania=[],profile=[];
+  const pamiec=new Map(),zapytania=[],profile=[];let tryb="en";
   const n={sciezki:{dane:"test-pula"},token:()=>"test",ustawienia:()=>({ig_id:"1"}),czytajJson:(p,d)=>structuredClone(pamiec.get(p)??d),zapiszJson:(p,d)=>pamiec.set(p,structuredClone(d)),czytajCialo:async r=>r.cialo,odpowiedzJson:(r,k,d)=>{r.kod=k;r.dane=structuredClone(d)},pobierzSzczegoly:async id=>({username:"autor"+Number(id.slice(6))}),graph:async(sc,p)=>{
     if(sc==="/ig_hashtag_search")return {data:[{id:"2"}]};
     if(sc.endsWith("_media")){
       const strona=Number(p.after||0);zapytania.push(sc+":"+strona);
+      // Tryb "obce": rolki bez rozpoznawalnego opisu; autorzy 900+ pisza po hiszpansku, 800+ po polsku.
+      if(tryb==="obce")return {data:[...Array.from({length:5},(_,i)=>rolka(900+i,1,400,"brak")),...Array.from({length:5},(_,i)=>rolka(800+i,1,400,"brak"))]};
       return {data:Array.from({length:10},(_,i)=>rolka(strona*10+i)),...(strona<6?{paging:{next:"nie-uzywamy-url-z-tokenem",cursors:{after:String(strona+1)}}}:{})};
     }
     const nr=Number(p.fields.match(/username\(autor(\d+)\)/)[1]);profile.push(nr);
-    return {business_discovery:{media:{data:[rolka(nr),...Array.from({length:6},(_,i)=>rolka(10000+nr*10+i,i+2,100))]}}};
+    const jezyk=nr>=900?"es":nr>=800?"pl":"en";
+    return {business_discovery:{media:{data:[rolka(nr,1,400,nr>=800?"brak":"en"),...Array.from({length:6},(_,i)=>rolka(10000+nr*10+i,i+2,100,jezyk))]}}};
   }};
   async function api(trasa="",cialo){const r={};await obsluzOdkrywanie({method:cialo?"POST":"GET",cialo},r,new URL("http://localhost/api/research/odkrywanie"+trasa),n);return r}
   async function koniec(){for(let i=0;i<200;i++){const d=(await api()).dane;if(!d.postep.w_toku)return d;await new Promise(r=>setTimeout(r,1))}throw Error("Brak zakończenia")}
@@ -35,6 +39,18 @@ const rolka=(nr,wiek=1,views=400)=>({id:String(nr),permalink:"https://www.instag
   // Podwyzszony prog nie moze liczyc starych wynikow 4x jako potwierdzonych 5x.
   await api("/szukaj",{...warunki,cel:30,filtry:{...warunki.filtry,prog:5}});d=await koniec();
   assert.equal(d.wyszukiwanie.potwierdzone,0);assert.equal(d.wyszukiwanie.powod,"wyczerpano");
+  // Opis bez jezyka dostaje jezyk z historii autora: hiszpanscy autorzy odpadaja, polscy sa potwierdzani przy filtrze PL.
+  tryb="obce";const przedObcymi=profile.length;
+  await api("/szukaj",{...warunki,frazy:["obce"],cel:30,filtry:{...warunki.filtry,jezyk:"pl"}});d=await koniec();
+  assert.equal(d.wyszukiwanie.potwierdzone,5);assert.equal(d.wyszukiwanie.powod,"wyczerpano");
+  const nrRolki=p=>Number(p.id.slice(6)),kandydaci=d.posty.filter(p=>d.ostatnie.includes(p.id));
+  const obce=kandydaci.filter(p=>nrRolki(p)>=900&&nrRolki(p)<1000),polskie=kandydaci.filter(p=>nrRolki(p)>=800&&nrRolki(p)<900);
+  assert.equal(obce.length,5);assert.equal(polskie.length,5);assert(obce.every(p=>p.jezyk==="inne"&&p.jezyk_zrodlo==="autor"),"Rolki hiszpańskiego autora bez opisu są oznaczone jako inny język");
+  assert(polskie.every(p=>p.jezyk==="pl"&&p.jezyk_zrodlo==="autor"&&/historii autora/.test(p.jezyk_metoda)));
+  assert.equal(profile.length-przedObcymi,10,"Każdy autor ma jedną historię, bez powtórzeń");
+  // Wczesniejsze hiszpanskie rolki z historii nie staja sie kandydatami; polskie z tematem tak.
+  assert(!d.ostatnie.some(id=>Number(id.slice(6))>=19000&&Number(id.slice(6))<19100));
+  tryb="en";
   // Zatrzymanie konczy sie po biezacym odczycie i zachowuje juz zebrane dane.
   let odblokuj;n.graph=()=>new Promise(ok=>odblokuj=ok);
   await api("/szukaj",{...warunki,frazy:["nowa"],cel:30});assert((await api()).dane.postep.w_toku);

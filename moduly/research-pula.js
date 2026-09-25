@@ -5,6 +5,20 @@ const swieze=s=>Number.isFinite(Date.parse(s))&&Date.now()-Date.parse(s)<6*36000
 const teraz=()=>new Date().toISOString();
 function wOkresie(p,filtry){const wiek=Date.now()-Date.parse(p.data);return Number.isFinite(wiek)&&wiek>=0&&(!filtry.okres||wiek<=filtry.okres*86400000)}
 function jezykPasuje(p,filtry){return p.jezyk!=="inne"&&(!p.jezyk||filtry.jezyk==="both"||p.jezyk===filtry.jezyk)}
+// Rolka bez rozpoznawalnego opisu (same hashtagi, emoji) dostaje jezyk dominujacy w historii autora.
+// To szacunek, oznaczony jezyk_zrodlo "autor"; opis z rozpoznanym jezykiem ma pierwszenstwo.
+function uzupelnijJezykAutora(d,autor,historia){
+  const jezyk=silnik.jezykAutora(historia?.posty||[]);
+  if(historia)historia.jezyk_autora=jezyk;
+  const przypisz=p=>{
+    if(!p||p.username!==autor)return;
+    if(p.jezyk_zrodlo==="autor"){p.jezyk=jezyk;if(!jezyk){delete p.jezyk_zrodlo;p.jezyk_metoda="Szacunek z opisu, nie z dźwięku filmu"}}
+    else if(!p.jezyk&&jezyk){p.jezyk=jezyk;p.jezyk_zrodlo="autor";p.jezyk_metoda="Szacunek z historii autora, bo opis nie ma rozpoznawalnego języka"}
+  };
+  for(const p of Object.values(d.posty))przypisz(p);
+  for(const p of historia?.posty||[])przypisz(p);
+  return jezyk;
+}
 function podlicz(d,filtry){
   return silnik.filtruj(d.ostatnie.map(id=>d.posty[id]).filter(Boolean).map(p=>({...p,...silnik.porownaj(p,d.historie[p.username]?.posty||[])})),{...filtry,niepelne:false}).posty.length;
 }
@@ -16,8 +30,9 @@ async function szukajPuli(n,{czytaj,zapisz,normalizuj,scalSzczegoly,szczegoly,po
   const odswiez=()=>{const d=czytaj();postep.potwierdzone=podlicz(d,filtry);postep.autorzy=autorzy.size;postep.kandydaci=d.ostatnie.length;postep.strony=strony;d.zakres_weryfikacji={kandydaci:d.ostatnie.length,sprawdzane:odwiedzone.size,autorzy:autorzy.size,strony,cel,potwierdzone:postep.potwierdzone};zapisz(d);return postep.potwierdzone>=cel};
   const blad=(fraza,e)=>{postep.bledy.push({fraza,kod:e.kod|| (e.blokada?"BLOKADA":"ODCZYT"),blad:e.message});if(e.blokada){przerwana=true;powod=e.kod==="META_LIMIT"?"limit":"blokada";if(powod==="limit"){const d=czytaj();d.meta_limit_do=new Date(Date.now()+15*60000).toISOString();zapisz(d)}}};
   function dodajHistorie(d,autor,historia){
+    uzupelnijJezykAutora(d,autor,historia);
     for(const h of historia.posty){
-      const stary=d.posty[h.id],pasuje=wOkresie(h,filtry)&&meta.pasujeDoFraz(h.opis,frazy);
+      const stary=d.posty[h.id],pasuje=wOkresie(h,filtry)&&meta.pasujeDoFraz(h.opis,frazy)&&jezykPasuje(h,filtry);
       if(pasuje||stary&&d.ostatnie.includes(h.id)){
         d.posty[h.id]={...h,film:stary?.film||h.film,przyblizone:false,tryb_odkrycia:stary?.tryb_odkrycia||"historia_tematyczna"};
         if(pasuje&&!d.ostatnie.includes(h.id))d.ostatnie.push(h.id);
@@ -56,7 +71,7 @@ async function szukajPuli(n,{czytaj,zapisz,normalizuj,scalSzczegoly,szczegoly,po
   while(!postep.anuluj&&!przerwana){
     if(odswiez()){powod="cel";break}
     d=czytaj();
-    const nastepne=d.ostatnie.map(id=>d.posty[id]).filter(p=>p&&!odwiedzone.has(p.id)&&wOkresie(p,filtry)&&jezykPasuje(p,filtry)).sort((a,b)=>Number(!!b.jezyk)-Number(!!a.jezyk)||(b.polubienia??-1)-(a.polubienia??-1));
+    const nastepne=d.ostatnie.map(id=>d.posty[id]).filter(p=>p&&!odwiedzone.has(p.id)&&wOkresie(p,filtry)&&jezykPasuje(p,filtry)&&d.historie[p.username]?.jezyk_autora!=="inne").sort((a,b)=>Number(!!b.jezyk)-Number(!!a.jezyk)||(b.polubienia??-1)-(a.polubienia??-1));
     for(const p of nastepne){
       if(postep.anuluj||przerwana||postep.potwierdzone>=cel)break;
       if(probyAutora>=budzetAutorow){powod="budzet";break}
@@ -97,4 +112,4 @@ async function szukajPuli(n,{czytaj,zapisz,normalizuj,scalSzczegoly,szczegoly,po
   odswiez();postep.powod=powod;
   return {powod,cel,filtry,potwierdzone:postep.potwierdzone,kandydaci:postep.kandydaci,autorzy:postep.autorzy,strony};
 }
-module.exports={szukajPuli,podlicz};
+module.exports={szukajPuli,podlicz,uzupelnijJezykAutora};

@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {rozszerz,porownaj,filtruj,jezykOpisu}=require("../app/research-silnik");
+const {rozszerz,porownaj,filtruj,jezykOpisu,jezykAutora}=require("../app/research-silnik");
 const {licznik,adresCDN}=require("../moduly/research-publiczne");
 const {normalizuj,analiza,obsluzOdkrywanie}=require("../moduly/research-odkrywanie");
 async function test(){
@@ -12,6 +12,19 @@ async function test(){
  assert.equal(jezykOpisu("カッコイイ体を作る時短トレーニング初心者におすすめです"),"inne");
  assert.notEqual(jezykOpisu("हर Workout में बस Weight बढ़ाने के पीछे मत भागो। Muscle Growth के लिए सिर्फ Heavy Weight नहीं #workout #training #muscle #growth #your"),"en");
  assert.equal(jezykOpisu("#muscle #growth #training #workout"),null);
+ // Hiszpanski, portugalski, niemiecki, francuski, wloski, turecki, indonezyjski i hindi zapisane lacinka to "inne".
+ for(const opis of ["Rutina de hipertrofia para piernas 🔥 #gym #hipertrofia","Treino de hipertrofia para pernas. Salva esse vídeo!","Das beste Training für Muskelaufbau, wenn du wenig Zeit hast","Le meilleur entrainement pour les jambes sans matériel","Il miglior allenamento per le gambe che puoi fare a casa","Bacak kası için en iyi antrenman","Latihan otot kaki yang bisa kamu lakukan di rumah","Bhai roz gym jao aur sahi diet lo, muscle growth ke liye yeh zaruri hai","Лучшая тренировка для ног #hypertrophy","#treino #academia #hipertrofia"])assert.equal(jezykOpisu(opis),"inne",opis);
+ // Krotkie polskie i angielskie opisy oraz polskie hashtagi.
+ for(const opis of ["Zapisz sobie na później 💪 #hipertrofia","Najlepszy trening na masę, który możesz zrobić w domu","3 ćwiczenia na plecy","#trening #siłownia #hipertrofia"])assert.equal(jezykOpisu(opis),"pl",opis);
+ for(const opis of ["Save this for later 💪 #hipertrofia","3 exercises for back growth","How to train legs when you have no time"])assert.equal(jezykOpisu(opis),"en",opis);
+ // Same uniwersalne tagi, sama nazwa tematu albo pusty opis: brak danych, nie zgadujemy.
+ for(const opis of ["#gym #fitness #hipertrofia","Hipertrofia","",null,"🔥🔥🔥"])assert.equal(jezykOpisu(opis),null,String(opis));
+ // Jezyk autora: minimum 3 rozpoznane opisy i 60% przewagi; szacunki z historii nie licza sie ponownie.
+ assert.equal(jezykAutora([{jezyk:"inne"},{jezyk:"inne"},{jezyk:"inne"},{jezyk:null},{jezyk:"en"}]),"inne");
+ assert.equal(jezykAutora([{jezyk:"pl"},{jezyk:"pl"},{jezyk:null}]),null);
+ assert.equal(jezykAutora([{jezyk:"pl"},{jezyk:"en"},{jezyk:"pl"},{jezyk:"en"}]),null);
+ assert.equal(jezykAutora([{jezyk:"pl"},{jezyk:"pl"},{jezyk:"pl",jezyk_zrodlo:"autor"}]),null);
+ assert.equal(jezykAutora([{jezyk:"en"},{jezyk:"en"},{jezyk:"en"},{jezyk:"pl"}]),"en");
  assert.deepEqual(rozszerz("nowy temat","both"),{frazy:["nowy temat"],przetlumaczone:false});
  assert.equal(licznik("1,2 mln"),1200000);assert.equal(licznik("753 tys."),753000);assert.equal(licznik("1,234"),1234);assert.equal(licznik(null),null);assert.equal(licznik("polubienia 200"),null);
  assert.equal(adresCDN("https://fbcdn.net.evil.test/v.mp4"),"");assert.equal(adresCDN("http://scontent.cdninstagram.com/a"),"");
@@ -66,6 +79,14 @@ async function test(){
  delete require.cache[require.resolve('../moduly/research-odkrywanie')];const swiezy=require('../moduly/research-odkrywanie'),res={};
  await swiezy.obsluzOdkrywanie({method:'GET'},res,new URL('http://localhost/api/research/odkrywanie'),n);
  assert.equal(res.dane.wyszukiwanie.stan,'blad');assert.equal(res.dane.postep.bledy[0].kod,'STRONA_NIEDOSTEPNA','Błąd źródła nie znika po restarcie');
- console.log("OK: frazy, język, brakujące dane, poprzednie rolki/mediana, filtry, walidacja, zapis, cache, zakres analizy");
+ // Migracja zapisanych danych do wersji 3: stare "nieznane" hiszpanskie opisy staja sie "inne", a rolki bez opisu dostaja jezyk autora.
+ const stareDane={wersja_jezyka:2,posty:{Es000001:{id:"Es000001",username:"hiszpan",opis:"Rutina de hipertrofia para piernas",jezyk:null,data:"2026-09-20T00:00:00Z"},Es000002:{id:"Es000002",username:"hiszpan",opis:"#hipertrofia 🔥",jezyk:null,data:"2026-09-21T00:00:00Z"}},historie:{hiszpan:{posty:Array.from({length:4},(_,i)=>({id:"H"+i,username:"hiszpan",opis:"Entrenamiento de piernas que puedes hacer en casa",jezyk:null,data:"2026-09-0"+(i+1)+"T00:00:00Z"}))}},ostatnie:["Es000001","Es000002"],wyszukiwanie:{filtry:{jezyk:"both",okres:30,prog:0}}};
+ const pamiec2=new Map([["migracja/research_odkrywanie.json",stareDane]]),n2={sciezki:{dane:"migracja"},czytajJson:(p,d)=>structuredClone(pamiec2.get(p)??d),zapiszJson:(p,d)=>pamiec2.set(p,structuredClone(d)),odpowiedzJson:(r,k,d)=>{r.kod=k;r.dane=structuredClone(d)}};
+ const res2={};await swiezy.obsluzOdkrywanie({method:'GET'},res2,new URL('http://localhost/api/research/odkrywanie'),n2);
+ const poMigracji=pamiec2.get("migracja/research_odkrywanie.json");
+ assert.equal(poMigracji.wersja_jezyka,3);assert.equal(poMigracji.posty.Es000001.jezyk,"inne");assert.equal(poMigracji.posty.Es000001.jezyk_zrodlo,undefined);
+ assert.equal(poMigracji.posty.Es000002.jezyk,"inne");assert.equal(poMigracji.posty.Es000002.jezyk_zrodlo,"autor");assert.equal(poMigracji.historie.hiszpan.jezyk_autora,"inne");
+ assert.equal(poMigracji.wyszukiwanie.potwierdzone,0);
+ console.log("OK: frazy, język, brakujące dane, poprzednie rolki/mediana, filtry, walidacja, zapis, cache, zakres analizy, języki i migracja");
 }
 test().catch(e=>{console.error(e);process.exitCode=1});
