@@ -61,11 +61,35 @@ function zapiszTekst(plik, tekst) {
 
 // ---------- Graph API ----------
 
+// Zuzycie limitu Meta: licznik zapytan tego procesu i ostatni naglowek x-app-usage
+// (procent limitu godzinowego, minuty do odblokowania). Bez tokenow i adresow.
+const uzycie = { zapytania: 0, procent: null, odblokowanie_min: null, odczyt: null, bledy_limitu: 0 };
+function zapiszUzycie(res) {
+  uzycie.zapytania++;
+  try {
+    const naglowek = res.headers["x-app-usage"] || res.headers["x-business-use-case-usage"];
+    if (!naglowek) return;
+    let dane = JSON.parse(naglowek);
+    // x-business-use-case-usage: { "<id>": [ {call_count, total_time, total_cputime, estimated_time_to_regain_access} ] }
+    if (!("call_count" in dane)) dane = Object.values(dane).flat()[0] || {};
+    const procenty = [dane.call_count, dane.total_time, dane.total_cputime].filter(Number.isFinite);
+    if (procenty.length) uzycie.procent = Math.max(...procenty);
+    uzycie.odblokowanie_min = Number.isFinite(dane.estimated_time_to_regain_access) ? dane.estimated_time_to_regain_access : null;
+    uzycie.odczyt = new Date().toISOString();
+  } catch {
+    // naglowek nieczytelny: zostawiamy poprzedni odczyt
+  }
+}
+function uzycieMeta() {
+  return { ...uzycie };
+}
+
 function pobierzJson(url) {
   return new Promise((resolve, reject) => {
     https
       .get(url, (res) => {
         let dane = "";
+        zapiszUzycie(res);
         res.setEncoding("utf8");
         res.on("data", (k) => (dane += k));
         res.on("end", () => {
@@ -79,6 +103,10 @@ function pobierzJson(url) {
             const e = new Error(json.error.message || "błąd Graph API");
             e.kod = json.error.code;
             e.http = res.statusCode;
+            if ([4, 17, 32, 613].includes(Number(e.kod))) {
+              uzycie.bledy_limitu++;
+              e.odblokowanie_min = uzycie.odblokowanie_min;
+            }
             return reject(e);
           }
           resolve(json);
@@ -178,22 +206,33 @@ const METRYKI_ROLKI =
   "views,reach,saved,shares,likes,comments,total_interactions,ig_reels_avg_watch_time,ig_reels_video_view_total_time";
 const METRYKI_POSTA = "views,reach,saved,shares,likes,comments,total_interactions";
 
-async function insightsMedia(id, rolka, token) {
-  const metryki = rolka ? METRYKI_ROLKI : METRYKI_POSTA;
-  const json = await graph("/" + id + "/insights", { metric: metryki }, token);
+const METRYKI_DODATKOWE = "reels_skip_rate,reposts";
+function mapaMetryk(json) {
   const m = {};
   for (const w of json.data || []) {
     m[w.name] = w.values && w.values[0] && w.values[0].value != null ? w.values[0].value : null;
   }
-  // Metryki dodatkowe dla rolek (sprawdzone 24.09.2026: `follows` nie dziala dla rolek,
-  // `reels_skip_rate` i `reposts` tak). Osobne zapytanie, zeby brak jednej nie psul reszty.
+  return m;
+}
+async function insightsMedia(id, rolka, token) {
+  const metryki = rolka ? METRYKI_ROLKI : METRYKI_POSTA;
+  // Limit Meta to ok. 200 zapytan na godzine. Rolka kosztuje jedno zapytanie: metryki
+  // podstawowe i dodatkowe razem. Dopiero gdy Meta odrzuci polaczony zestaw, rozdzielamy.
+  if (rolka) {
+    try {
+      const m = mapaMetryk(await graph("/" + id + "/insights", { metric: metryki + "," + METRYKI_DODATKOWE }, token));
+      const dodatkowe = {};
+      for (const k of METRYKI_DODATKOWE.split(",")) if (k in m) { dodatkowe[k] = m[k]; delete m[k]; }
+      return { m, follows: null, dodatkowe };
+    } catch (e) {
+      if ([4, 17, 32, 613, 190].includes(Number(e.kod))) throw e;
+    }
+  }
+  const m = mapaMetryk(await graph("/" + id + "/insights", { metric: metryki }, token));
   let dodatkowe = {};
   if (rolka) {
     try {
-      const f = await graph("/" + id + "/insights", { metric: "reels_skip_rate,reposts" }, token);
-      for (const w of f.data || []) {
-        dodatkowe[w.name] = w.values && w.values[0] && w.values[0].value != null ? w.values[0].value : null;
-      }
+      dodatkowe = mapaMetryk(await graph("/" + id + "/insights", { metric: METRYKI_DODATKOWE }, token));
     } catch {
       dodatkowe = {};
     }
@@ -232,15 +271,30 @@ async function pobierzRolki(token) {
     // Po cztery media naraz: statystyki i pomiar dlugosci czekaja glownie na siec,
     // wiec rownolegle skracaja pobieranie kilkukrotnie. Kolejnosc wyniku = kolejnosc z API.
     const ROWNOLEGLE = 4;
+    const DNI_ODSWIEZANIA = 30;
     const opiszMedia = async (m) => {
       const rolka = m.media_product_type === "REELS";
+      const poprzednia = stareWg.get(m.id) || {};
+      // Statystyki starszych niz 30 dni prawie sie nie zmieniaja. Odswiezamy tylko swieze
+      // publikacje i te, ktore nie maja jeszcze poprawnie pobranych danych. Oszczedza limit Meta.
+      const wiekDni = (Date.now() - Date.parse(m.timestamp)) / 864e5;
+      const zapisane = poprzednia.pobrano && !poprzednia.blad && poprzednia.wyswietlenia != null;
+      if (zapisane && wiekDni > DNI_ODSWIEZANIA) {
+        postep.zrobione++;
+        return {
+          ...poprzednia,
+          polubienia: m.like_count != null ? m.like_count : poprzednia.polubienia,
+          komentarze: m.comments_count != null ? m.comments_count : poprzednia.komentarze,
+          miniatura: m.thumbnail_url || poprzednia.miniatura || null,
+          permalink: m.permalink || poprzednia.permalink,
+        };
+      }
       let ins = { m: {}, follows: null, dodatkowe: {} };
       try {
         ins = await insightsMedia(m.id, rolka, token);
       } catch (e) {
         ins.blad = e.message;
       }
-      const poprzednia = stareWg.get(m.id) || {};
       let dlugosc = poprzednia.dlugosc || null;
       if (!dlugosc && rolka && m.media_url) {
         postep.krok = "długość";
@@ -306,6 +360,7 @@ async function stan(sprawdz) {
       : null,
     rolki: { n: rolki.length, ostatnie_pobranie: ust.ostatnie_pobranie || null },
     postep,
+    meta: uzycieMeta(),
   };
   if (token && sprawdz) {
     try {
@@ -440,6 +495,7 @@ function narzedziaModulow() {
     token: () => czytajTekst(p.token),
     ustawienia: () => czytajJson(p.ustawienia, {}),
     port: () => PORT,
+    uzycieMeta,
   };
 }
 

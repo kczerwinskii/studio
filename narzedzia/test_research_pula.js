@@ -25,7 +25,7 @@ const rolka=(nr,wiek=1,views=400,opis="en")=>({id:String(nr),permalink:"https://
     }
     const nr=Number(p.fields.match(/username\(autor(\d+)\)/)[1]);profile.push(nr);
     const jezyk=nr>=900?"es":nr>=800?"pl":"en";
-    return {business_discovery:{media:{data:[rolka(nr,1,400,nr>=800?"brak":"en"),...Array.from({length:6},(_,i)=>rolka(10000+nr*10+i,i+2,100,jezyk))]}}};
+    return {business_discovery:{media:{data:[rolka(nr,1,400,nr>=800?"brak":"en"),...Array.from({length:9},(_,i)=>rolka(10000+nr*10+i,i+2,100,jezyk))]}}};
   }};
   async function api(trasa="",cialo){const r={};await obsluzOdkrywanie({method:cialo?"POST":"GET",cialo},r,new URL("http://localhost/api/research/odkrywanie"+trasa),n);return r}
   async function koniec(){for(let i=0;i<200;i++){const d=(await api()).dane;if(!d.postep.w_toku)return d;await new Promise(r=>setTimeout(r,1))}throw Error("Brak zakończenia")}
@@ -52,6 +52,25 @@ const rolka=(nr,wiek=1,views=400,opis="en")=>({id:String(nr),permalink:"https://
   // Wczesniejsze hiszpanskie rolki z historii nie staja sie kandydatami; polskie z tematem tak.
   assert(!d.ostatnie.some(id=>Number(id.slice(6))>=19000&&Number(id.slice(6))<19100));
   tryb="en";
+  // Limit w polowie historii: kursor jest zapisany, a wznowienie kontynuuje od niego zamiast od pierwszej strony.
+  {
+    const staryGraph=n.graph;let faza=1;const zapytaniaHistorii=[];
+    n.graph=async(sc,p)=>{
+      if(sc==="/ig_hashtag_search")return {data:[{id:"3"}]};
+      if(sc.endsWith("_media"))return {data:[rolka(700,1,400,"en")]};
+      const after=(p.fields.match(/\.after\(([^)]+)\)/)||[])[1]||null;zapytaniaHistorii.push(after);
+      if(faza===1){if(after)throw Object.assign(new Error("limit"),{kod:4});return {business_discovery:{media:{data:[rolka(700,1,400,"en"),rolka(17001,2,100,"en"),rolka(17002,3,100,"en")],paging:{cursors:{after:"KURSOR700"}}}}}}
+      return {business_discovery:{media:{data:Array.from({length:8},(_,i)=>rolka(17010+i,i+4,100,"en"))}}};
+    };
+    await api("/szukaj",{...warunki,frazy:["kursor"],cel:30});d=await koniec();
+    assert.equal(d.wyszukiwanie.powod,"limit");assert.deepEqual(zapytaniaHistorii,[null,"KURSOR700"]);
+    const [plikK,stanK]=[...pamiec.entries()][0];assert.equal(stanK.historie.autor700.kursor,"KURSOR700");assert.equal(stanK.historie.autor700.posty.length,3);
+    faza=2;stanK.meta_limit_do=new Date(Date.now()-1000).toISOString();stanK.wyszukiwanie.wznow_po=stanK.meta_limit_do;pamiec.set(plikK,stanK);
+    await api();d=await koniec();
+    assert.deepEqual(zapytaniaHistorii.slice(2),["KURSOR700"],"Wznowienie kontynuuje od kursora, bez powtarzania pierwszej strony");
+    assert.equal(d.wyszukiwanie.potwierdzone,1);assert.equal(d.posty.find(p=>p.id==="Target0700").liczba_bazowych,10);
+    n.graph=staryGraph;
+  }
   // Zatrzymanie konczy sie po biezacym odczycie i zachowuje juz zebrane dane.
   let odblokuj;n.graph=()=>new Promise(ok=>odblokuj=ok);
   await api("/szukaj",{...warunki,frazy:["nowa"],cel:30});assert((await api()).dane.postep.w_toku);

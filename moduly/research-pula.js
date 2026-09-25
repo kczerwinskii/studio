@@ -27,8 +27,9 @@ async function szukajPuli(n,{czytaj,zapisz,normalizuj,scalSzczegoly,szczegoly,po
   let strony=0,probyAutora=0,powod="wyczerpano",przerwana=false;
   // Limit pracy jednego uruchomienia, nie limit wynikow. Kontynuacja uzywa zapisanych kursorow.
   const budzetStron=200,budzetAutorow=250;
-  const odswiez=()=>{const d=czytaj();postep.potwierdzone=podlicz(d,filtry);postep.autorzy=autorzy.size;postep.kandydaci=d.ostatnie.length;postep.strony=strony;d.zakres_weryfikacji={kandydaci:d.ostatnie.length,sprawdzane:odwiedzone.size,autorzy:autorzy.size,strony,cel,potwierdzone:postep.potwierdzone};zapisz(d);return postep.potwierdzone>=cel};
-  const blad=(fraza,e)=>{postep.bledy.push({fraza,kod:e.kod|| (e.blokada?"BLOKADA":"ODCZYT"),blad:e.message});if(e.blokada){przerwana=true;powod=e.kod==="META_LIMIT"?"limit":"blokada";if(powod==="limit"){const d=czytaj();d.meta_limit_do=new Date(Date.now()+15*60000).toISOString();zapisz(d)}}};
+  const odswiez=()=>{const d=czytaj();const z=zapytan();postep.zapytania=z!=null&&zapytaniaStart!=null?z-zapytaniaStart:null;postep.potwierdzone=podlicz(d,filtry);postep.autorzy=autorzy.size;postep.kandydaci=d.ostatnie.length;postep.strony=strony;d.zakres_weryfikacji={kandydaci:d.ostatnie.length,sprawdzane:odwiedzone.size,autorzy:autorzy.size,strony,cel,potwierdzone:postep.potwierdzone};zapisz(d);return postep.potwierdzone>=cel};
+  const blad=(fraza,e)=>{postep.bledy.push({fraza,kod:e.kod|| (e.blokada?"BLOKADA":"ODCZYT"),blad:e.message});if(e.blokada){przerwana=true;powod=e.kod==="META_LIMIT"?"limit":"blokada";if(powod==="limit"){const d=czytaj();const minuty=Number.isFinite(e.odblokowanie_min)&&e.odblokowanie_min>0?Math.min(60,e.odblokowanie_min+1):15;d.meta_limit_do=new Date(Date.now()+minuty*60000).toISOString();zapisz(d)}}};
+  const zapytan=()=>typeof n.uzycieMeta==="function"?n.uzycieMeta().zapytania:null;const zapytaniaStart=zapytan();
   function dodajHistorie(d,autor,historia){
     uzupelnijJezykAutora(d,autor,historia);
     for(const h of historia.posty){
@@ -46,10 +47,16 @@ async function szukajPuli(n,{czytaj,zapisz,normalizuj,scalSzczegoly,szczegoly,po
     if(swieze(historia?.nieudana_proba)){postep.pominiete_profile=(postep.pominiete_profile||0)+1;return}
     postep.fraza="Historia @"+ustalony;
     try{
-      if(!swieze(historia?.pobrano)||historia.zrodlo_api!=="meta"||historia.wersja_puli!==2||historia.okres!==filtry.okres){
-        const w=await meta.pobierzProfil(n,ustalony,{strony:5,okres:filtry.okres,przerwij:()=>postep.anuluj});
-        historia={posty:w.posty.map(p=>({...normalizuj(p,"",w.url),zrodlo_historii:"profil"})),pobrano:teraz(),zrodlo_api:"meta",wersja_puli:postep.anuluj||w.ostrzezenie?0:2,okres:filtry.okres};
-        if(w.ostrzezenie)blad(ustalony,{message:w.ostrzezenie.blad,blokada:w.ostrzezenie.blokada,kod:w.ostrzezenie.kod});
+      const aktualna=swieze(historia?.pobrano)&&historia.zrodlo_api==="meta"&&historia.wersja_puli===3;
+      if(!aktualna){
+        // Przerwana historia (limit w polowie) ma zapisany kursor: kontynuujemy, nie zaczynamy od nowa.
+        const kontynuacja=historia?.zrodlo_api==="meta"&&historia.wersja_puli===0&&historia.kursor&&swieze(historia.pobrano);
+        const w=await meta.pobierzProfil(n,ustalony,{strony:2,minRolek:8,after:kontynuacja?historia.kursor:undefined,przerwij:()=>postep.anuluj});
+        const nowe=w.posty.map(p=>({...normalizuj(p,"",w.url),zrodlo_historii:"profil"}));
+        const posty=kontynuacja?[...new Map([...historia.posty,...nowe].map(p=>[p.id,p])).values()]:nowe;
+        const niepelna=postep.anuluj||!!w.ostrzezenie;
+        historia={posty,pobrano:teraz(),zrodlo_api:"meta",wersja_puli:niepelna?0:3,kursor:niepelna?w.kursor:null,okres:filtry.okres};
+        if(w.ostrzezenie)blad(ustalony,{message:w.ostrzezenie.blad,blokada:w.ostrzezenie.blokada,kod:w.ostrzezenie.kod,odblokowanie_min:w.ostrzezenie.odblokowanie_min});
       }
       const d=czytaj();dodajHistorie(d,ustalony,historia);zapisz(d);
     }catch(e){
@@ -61,7 +68,7 @@ async function szukajPuli(n,{czytaj,zapisz,normalizuj,scalSzczegoly,szczegoly,po
   let d=czytaj();d.zrodlo_api="meta";
   // Zachowane inspiracje nie sa automatycznie wynikami nowego tematu.
   for(const fraza of frazy){const f=d.frazy[fraza];if(swieze(f?.pobrano)&&f.zrodlo_api==="meta")for(const id of f.ids||[])if(d.posty[id]&&!d.ostatnie.includes(id))d.ostatnie.push(id)}
-  for(const [nazwa,h] of Object.entries(d.historie))if(swieze(h.pobrano)&&h.zrodlo_api==="meta")dodajHistorie(d,nazwa,h);
+  for(const [nazwa,h] of Object.entries(d.historie))if(swieze(h.pobrano)&&h.zrodlo_api==="meta"&&h.wersja_puli!==0)dodajHistorie(d,nazwa,h);
   zapisz(d);odswiez();
   // Najpierw rozwijamy znane, powiazane z tematem historie; nie trzeba ponownie czytac stron rolek.
   if(Date.parse(d.meta_limit_do)>Date.now()){postep.powod="limit";return {powod:"limit",cel,filtry,potwierdzone:postep.potwierdzone,kandydaci:postep.kandydaci,autorzy:0,strony:0}}
@@ -110,6 +117,6 @@ async function szukajPuli(n,{czytaj,zapisz,normalizuj,scalSzczegoly,szczegoly,po
   }
   if(postep.anuluj)powod="zatrzymano";
   odswiez();postep.powod=powod;
-  return {powod,cel,filtry,potwierdzone:postep.potwierdzone,kandydaci:postep.kandydaci,autorzy:postep.autorzy,strony};
+  return {powod,cel,filtry,potwierdzone:postep.potwierdzone,kandydaci:postep.kandydaci,autorzy:postep.autorzy,strony,zapytania:postep.zapytania??null};
 }
 module.exports={szukajPuli,podlicz,uzupelnijJezykAutora};

@@ -29,10 +29,10 @@ async function test(){
  assert.equal(licznik("1,2 mln"),1200000);assert.equal(licznik("753 tys."),753000);assert.equal(licznik("1,234"),1234);assert.equal(licznik(null),null);assert.equal(licznik("polubienia 200"),null);
  assert.equal(adresCDN("https://fbcdn.net.evil.test/v.mp4"),"");assert.equal(adresCDN("http://scontent.cdninstagram.com/a"),"");
  assert.equal(jezykOpisu("Your muscle growth and training: the workout for you"),"en");assert.equal(jezykOpisu("#fitness"),null);
- const historia=Array.from({length:6},(_,i)=>({id:String(i),username:"trener",typ:"rolka",zrodlo_historii:"profil",wyswietlenia:10000,data:`2026-09-${10+i}T10:00:00Z`}));
+ const historia=Array.from({length:9},(_,i)=>({id:String(i),username:"trener",typ:"rolka",zrodlo_historii:"profil",wyswietlenia:10000,data:`2026-09-${10+i}T10:00:00Z`}));
  const post={id:"test",username:"trener",typ:"rolka",wyswietlenia:50000,data:"2026-09-23T10:00:00Z",jezyk:"pl"};
  assert.equal(porownaj(post,[...historia,post,{...historia[0],id:"pozniej",wyswietlenia:900000,data:"2026-09-24T10:00:00Z"}]).krotnosc_wyswietlen,5);
- assert.equal(porownaj(post,[...historia.slice(0,4),historia[0]]).krotnosc_wyswietlen,null);
+ assert.equal(porownaj(post,[...historia.slice(0,7),historia[0]]).krotnosc_wyswietlen,null,"Minimum 8 wcześniejszych rolek");
  assert.equal(porownaj(post,historia.map(p=>({...p,zrodlo_historii:"popular"}))).krotnosc_wyswietlen,null);
  assert.equal(porownaj(post,historia.map(p=>({...p,wyswietlenia:0}))).krotnosc_wyswietlen,null);
  const f={jezyk:"pl",prog:3,okres:7,niepelne:false}, teraz=Date.parse("2026-09-24T10:00:00Z");
@@ -71,9 +71,9 @@ async function test(){
  const terazMs=Date.now();
  n.pobierzPubliczne=async()=>({url:"https://www.instagram.com/popular/nowy/",posty:[{kod:"FreshAA",username:"autor",opis:p.opis,licznik:"50 tys."}]});
  n.pobierzSzczegoly=async id=>({data:new Date(terazMs-(id==="FreshAA"?1:Number(id.slice(-1))+2)*86400000).toISOString(),polubienia:100,komentarze:12});
- n.pobierzProfil=async()=>({url:"https://www.instagram.com/autor/reels/",posty:Array.from({length:6},(_,i)=>({kod:"OlderA"+i,username:"autor",licznik:"10 tys."}))});
+ n.pobierzProfil=async()=>({url:"https://www.instagram.com/autor/reels/",posty:Array.from({length:9},(_,i)=>({kod:"OlderA"+i,username:"autor",licznik:"10 tys."}))});
  await api("/szukaj",{temat:"nowy",frazy:["nowy"]});for(let i=0;i<30&&(await api()).dane.postep.w_toku;i++)await new Promise(r=>setTimeout(r,1));
- const nowy=(await api()).dane.posty.find(p=>p.id==="FreshAA");assert.equal(nowy.krotnosc_wyswietlen,5);assert.equal(nowy.liczba_bazowych,6);assert.equal(nowy.komentarze,12);
+ const nowy=(await api()).dane.posty.find(p=>p.id==="FreshAA");assert.equal(nowy.krotnosc_wyswietlen,5);assert.equal(nowy.liczba_bazowych,9);assert.equal(nowy.komentarze,12);
  n.pobierzPubliczne=async()=>{throw Object.assign(new Error("Instagram nie udostępnia tej strony."),{kod:"STRONA_NIEDOSTEPNA"})};
  await api('/szukaj',{temat:'fitness',frazy:['fitness']});for(let i=0;i<30&&(await api()).dane.postep.w_toku;i++)await new Promise(r=>setTimeout(r,1));
  assert.equal((await api()).dane.postep.bledy[0].kod,'STRONA_NIEDOSTEPNA');

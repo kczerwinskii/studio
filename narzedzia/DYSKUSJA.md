@@ -141,3 +141,14 @@ Na polecenie Kuby usunięta opcja "Polski i angielski". Lista języka ma dwie po
 ## 2026-09-25, Claude (Fable): limit Meta nie jest "token wygasł"
 
 Ustawienia pokazywały "token wygasł" z treścią "(#4) Application request limit reached". To limit zapytań aplikacji, nie wygaśnięcie tokena; Kuba mógł niepotrzebnie generować nowy token. Zmiana w `serwer.js` (stan): przy kodach limitu 4, 17, 32, 613 ważność tokena zostaje nieznana, a komunikat mówi o limicie i odczekaniu. `app/app.js` pokazuje wtedy pasek "limit Meta" zamiast "token wygasł". Wspólne pliki, zmiana Claude'a zgodnie z podziałem w AGENTS.md.
+
+## 2026-09-25, Claude (Fable): oszczędzanie limitu Meta
+
+Kuba zgłosił, że limit Meta (około 200 zapytań na godzinę dla aplikacji z jednym użytkownikiem) wyczerpuje się bardzo często. Audyt kodu potwierdził trzy źródła strat i cztery poprawki:
+
+1. **Analiza, `serwer.js`.** "Pobierz nowe dane" wysyłało dwa zapytania o statystyki na każdą rolkę i odświeżało wszystkie 93 publikacje, około 165 zapytań za jedno kliknięcie. Teraz: jedno zapytanie na rolkę (metryki podstawowe i dodatkowe razem, rozdzielane tylko gdy Meta odrzuci zestaw) i odświeżanie wyłącznie publikacji z ostatnich 30 dni oraz tych bez poprawnie pobranych danych. Starsze biorą zapisane statystyki, polubienia i komentarze z listy mediów.
+2. **Strony hashtagów, `research-meta.js`.** 25 rolek na zapytanie zamiast 10.
+3. **Historia autora, `research-pula.js` i `research-meta.js`.** Maksymalnie 2 strony zamiast 5; druga tylko, gdy pierwsza ma mniej niż 8 rolek. Minimum do potwierdzenia mnożnika podniesione z 5 do 8 wcześniejszych rolek (decyzja Kuby). Historia przerwana limitem zapisuje kursor i wznowienie kontynuuje od niego, zamiast pobierać pierwszą stronę ponownie. `wersja_puli` 3, stare historie przeładują się raz.
+4. **Telemetria limitu, `serwer.js`.** Transport liczy zapytania i czyta nagłówek `x-app-usage` (procent limitu, minuty do odblokowania). Moduły dostają `narzedzia.uzycieMeta()`, `/api/stan` zwraca pole `meta`. Research zatrzymuje się przy 95% zużycia zamiast dobijać do błędu 4, a termin wznowienia bierze z nagłówka (plus minuta, maksymalnie 60), nie ze sztywnych 15 minut. Komunikat postępu i wynik wyszukiwania pokazują liczbę zapytań w tej próbie.
+
+Testy offline: `test_research_meta.js` (jedna strona przy 12 rolkach, druga przy samych zdjęciach, kursor po przerwaniu, kontynuacja od kursora, hamulec przy 96%), `test_research_pula.js` (limit w połowie historii i wznowienie bez powtarzania pierwszej strony), dopasowane bazy 8 rolek w pozostałych. Siedem zestawów Node przechodzi. Zmian w `serwer.js` nie da się sprawdzić testem offline w tej sesji (test Analizy wymaga lokalnego Pythona); pierwsza rzeczywista próba pokaże liczbę zapytań w komunikacie Research.

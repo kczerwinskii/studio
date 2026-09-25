@@ -75,6 +75,7 @@
     const [jezyk, n] = Object.entries(liczby).sort((a, b) => b[1] - a[1])[0];
     return razem >= 3 && n / razem >= 0.6 ? jezyk : null;
   }
+  const MIN_BAZA = 8;
   const jestLiczba = w => typeof w === "number" && Number.isFinite(w) && w >= 0;
   function mediana(liczby) { const a = liczby.filter(jestLiczba).sort((a,b) => a-b), n = a.length; return n ? n % 2 ? a[(n-1)/2] : (a[n/2-1]+a[n/2])/2 : null; }
   function porownaj(post, historia) {
@@ -82,7 +83,8 @@
     const unikalne = [...new Map(historia.map(p => [p.id, p])).values()];
     // Wyniki popularnego tematu sa probka wybranych hitow, nie historia autora.
     const baza = unikalne.filter(p => p.zrodlo_historii === "profil" && (p.metryka_wyswietlen||"publiczne")===(post.metryka_wyswietlen||"publiczne") && p.id !== post.id && p.username && p.username === post.username && p.typ === "rolka" && jestLiczba(p.wyswietlenia) && Date.parse(p.data) < data).sort((a,b) => Date.parse(b.data)-Date.parse(a.data)).slice(0,20);
-    const med = baza.length >= 5 ? mediana(baza.map(p=>p.wyswietlenia)) : null;
+    // Minimum 8 wczesniejszych rolek (decyzja Kuby 25.09.2026): mniejsza baza daje przypadkowa mediane.
+    const med = baza.length >= MIN_BAZA ? mediana(baza.map(p=>p.wyswietlenia)) : null;
     return { mediana_wyswietlen: med, liczba_bazowych: baza.length, krotnosc_przyblizone:!!post.przyblizone||baza.some(p=>p.przyblizone), krotnosc_wyswietlen: med > 0 && jestLiczba(post.wyswietlenia) ? post.wyswietlenia / med : null };
   }
   function filtruj(posty, filtry, teraz = Date.now()) {
@@ -109,7 +111,7 @@
     }
     return { posty: wynik.sort((a,b)=>(b.krotnosc_wyswietlen ?? -1)-(a.krotnosc_wyswietlen ?? -1)), niepelne, odrzucone, powody };
   }
-  const funkcje = { rozszerz, jezykOpisu, jezykAutora, mediana, porownaj, filtruj, uprosc };
+  const funkcje = { rozszerz, jezykOpisu, jezykAutora, mediana, porownaj, filtruj, uprosc, MIN_BAZA };
   if (typeof module !== "undefined" && module.exports) module.exports = funkcje;
   else korzen.ResearchSilnik = funkcje;
 })(typeof window === "undefined" ? globalThis : window);
