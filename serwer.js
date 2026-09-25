@@ -319,8 +319,10 @@ async function stan(sprawdz) {
         wynik.konto = { username: konto.username, obserwujacy: konto.obserwujacy, strona: konto.strona, avatar: konto.avatar };
       }
     } catch (e) {
-      wynik.token.wazny = false;
-      wynik.token.blad = e.message;
+      // Limit zapytan (#4, #17, #32, #613) nie mowi nic o waznosci tokena: nie udajemy, ze wygasl.
+      const limit = /\(#(?:4|17|32|613)\)/.test(e.message || "") || [4, 17, 32, 613].includes(Number(e.kod));
+      wynik.token.wazny = limit ? null : false;
+      wynik.token.blad = limit ? "Meta ogranicza zapytania (limit aplikacji). Token nie został sprawdzony, odczekaj około godziny." : e.message;
     }
   }
   return wynik;

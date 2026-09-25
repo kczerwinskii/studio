@@ -415,6 +415,7 @@ function rysujUstawienia(s) {
   let opis, pasek, zle = false;
   if (!t.jest) { opis = "Nie ma tokena."; pasek = "brak tokena"; zle = true; }
   else if (t.wazny === false) { opis = "Token jest nieważny: " + (t.blad || "wygasł") + ". Wygeneruj nowy w Graph API Explorer i wklej niżej."; pasek = "token wygasł"; zle = true; }
+  else if (t.blad) { opis = t.blad; pasek = "limit Meta"; }
   else if (t.wazny_do) {
     const dni = Math.round((new Date(t.wazny_do) - Date.now()) / 864e5);
     const godz = Math.round((new Date(t.wazny_do) - Date.now()) / 36e5);

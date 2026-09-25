@@ -137,3 +137,7 @@ Po restarcie Studio odrzuconych za język było 719 zamiast 214, ale w kartach n
 ## 2026-09-25, Claude (Fable): tylko Polski albo Angielski
 
 Na polecenie Kuby usunięta opcja "Polski i angielski". Lista języka ma dwie pozycje: Polski (domyślnie) i Angielski, wszystkie kraje. Serwer odrzuca inne wartości filtra. Testy dostosowane.
+
+## 2026-09-25, Claude (Fable): limit Meta nie jest "token wygasł"
+
+Ustawienia pokazywały "token wygasł" z treścią "(#4) Application request limit reached". To limit zapytań aplikacji, nie wygaśnięcie tokena; Kuba mógł niepotrzebnie generować nowy token. Zmiana w `serwer.js` (stan): przy kodach limitu 4, 17, 32, 613 ważność tokena zostaje nieznana, a komunikat mówi o limicie i odczekaniu. `app/app.js` pokazuje wtedy pasek "limit Meta" zamiast "token wygasł". Wspólne pliki, zmiana Claude'a zgodnie z podziałem w AGENTS.md.
