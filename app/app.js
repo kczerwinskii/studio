@@ -527,6 +527,7 @@ async function start() {
 
   let widok = "analiza";
   try { widok = localStorage.getItem("studio.widok") || "analiza"; } catch {}
+  if (widok === "research") widok = "analiza"; // zakladka wylaczona, zapamietany widok nie moze jej otworzyc
   pokazWidok(widok);
 
   try {
@@ -537,9 +538,6 @@ async function start() {
     $("#token-stan").textContent = "serwer: " + e.message;
   }
   rysujAnalize();
-  if (window.Research && typeof window.Research.start === "function") {
-    try { window.Research.start(); } catch (e) { console.error("Research:", e); }
-  }
   if (window.YouTube && typeof window.YouTube.start === "function") {
     try { window.YouTube.start(); } catch (e) { console.error("YouTube:", e); }
   }
