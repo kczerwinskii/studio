@@ -77,7 +77,7 @@ const rolka=(nr,wiek=1,views=400,opis="en")=>({id:String(nr),permalink:"https://
     const staryGraph=n.graph;let stron=0;
     n.graph=async(sc,p)=>{
       if(sc==="/ig_hashtag_search")return {data:[{id:"4"}]};
-      if(sc.endsWith("_media")){stron++;return {data:Array.from({length:5},(_,i)=>rolka(20000+stron*10+i,1,400,"es")),paging:{cursors:{after:"J"+stron}}}}
+      if(sc.endsWith("_media")){stron++;return {data:Array.from({length:5},(_,i)=>rolka(20000+stron*10+i,1,400,"es")),paging:{next:"nie-uzywamy",cursors:{after:"J"+stron}}}}
       throw new Error("Historia nie powinna być pobierana dla obcych rolek");
     };
     await api("/szukaj",{...warunki,frazy:["jalowa"],cel:30,filtry:{...warunki.filtry,jezyk:"pl"}});d=await koniec();
