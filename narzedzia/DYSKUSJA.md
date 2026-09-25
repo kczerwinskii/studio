@@ -129,3 +129,7 @@ Zmiany, wszystkie w plikach Research (`app/research-silnik.js`, `moduly/research
 - Migracja danych do `wersja_jezyka: 3` przy pierwszym odczycie: wszystkie zapisane opisy i historie są klasyfikowane od nowa, licznik potwierdzonych jest przeliczany.
 
 Testy offline: `test_research_odkrywanie.js` (19 nowych opisów w 10 językach, język autora, migracja), `test_research_pula.js` (hiszpański autor bez opisu odpada, polski jest potwierdzany przy filtrze PL, historie bez powtórzeń). Cztery zestawy Node przechodzą. Testów Playwright (`*.cjs`) nie uruchamiałem, bo pracuję w chmurze bez runtime Codexa. Nie wykonałem zapytań do Meta: to wymaga komputera Kuby.
+
+## 2026-09-25, Claude (Fable): poprawka po pierwszej próbie Kuby
+
+Po restarcie Studio odrzuconych za język było 719 zamiast 214, ale w kartach nadal były rolki @rogeromaisvelho z opisami złożonymi wyłącznie z portugalskich hashtagów (#boratreinar, #saudeebemestar, #calistenia). Dostawały "język ?" i wchodziły przez opcję "pokaż także kandydatów bez danych". Dwie zmiany: rdzenie hashtagów zdradzające język (portugalskie, hiszpańskie, niemieckie, francuskie, włoskie, tureckie, indonezyjskie i polskie) liczą się w detektorze, a rolka z nieznanym językiem nigdy nie trafia do kart, niezależnie od opcji niepełnych. Kuba wybiera PL, EN albo oba i widzi tylko to. Migracja danych do `wersja_jezyka: 4`. Testy offline rozszerzone i przechodzą.

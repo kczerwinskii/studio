@@ -13,9 +13,9 @@ async function test(){
  assert.notEqual(jezykOpisu("हर Workout में बस Weight बढ़ाने के पीछे मत भागो। Muscle Growth के लिए सिर्फ Heavy Weight नहीं #workout #training #muscle #growth #your"),"en");
  assert.equal(jezykOpisu("#muscle #growth #training #workout"),null);
  // Hiszpanski, portugalski, niemiecki, francuski, wloski, turecki, indonezyjski i hindi zapisane lacinka to "inne".
- for(const opis of ["Rutina de hipertrofia para piernas 🔥 #gym #hipertrofia","Treino de hipertrofia para pernas. Salva esse vídeo!","Das beste Training für Muskelaufbau, wenn du wenig Zeit hast","Le meilleur entrainement pour les jambes sans matériel","Il miglior allenamento per le gambe che puoi fare a casa","Bacak kası için en iyi antrenman","Latihan otot kaki yang bisa kamu lakukan di rumah","Bhai roz gym jao aur sahi diet lo, muscle growth ke liye yeh zaruri hai","Лучшая тренировка для ног #hypertrophy","#treino #academia #hipertrofia"])assert.equal(jezykOpisu(opis),"inne",opis);
+ for(const opis of ["Rutina de hipertrofia para piernas 🔥 #gym #hipertrofia","Treino de hipertrofia para pernas. Salva esse vídeo!","Das beste Training für Muskelaufbau, wenn du wenig Zeit hast","Le meilleur entrainement pour les jambes sans matériel","Il miglior allenamento per le gambe che puoi fare a casa","Bacak kası için en iyi antrenman","Latihan otot kaki yang bisa kamu lakukan di rumah","Bhai roz gym jao aur sahi diet lo, muscle growth ke liye yeh zaruri hai","Лучшая тренировка для ног #hypertrophy","#treino #academia #hipertrofia","#boratreinar #hipertrofia #motivation #calistenia #saudeebemestar","#boratreinar #saudeebemestar #calistenia #hipertrofia","#entrenamiento #rutina #hipertrofia #gym"])assert.equal(jezykOpisu(opis),"inne",opis);
  // Krotkie polskie i angielskie opisy oraz polskie hashtagi.
- for(const opis of ["Zapisz sobie na później 💪 #hipertrofia","Najlepszy trening na masę, który możesz zrobić w domu","3 ćwiczenia na plecy","#trening #siłownia #hipertrofia"])assert.equal(jezykOpisu(opis),"pl",opis);
+ for(const opis of ["Zapisz sobie na później 💪 #hipertrofia","Najlepszy trening na masę, który możesz zrobić w domu","3 ćwiczenia na plecy","#trening #siłownia #hipertrofia","#treningsilowy #fitnesspolska #hipertrofia"])assert.equal(jezykOpisu(opis),"pl",opis);
  for(const opis of ["Save this for later 💪 #hipertrofia","3 exercises for back growth","How to train legs when you have no time"])assert.equal(jezykOpisu(opis),"en",opis);
  // Same uniwersalne tagi, sama nazwa tematu albo pusty opis: brak danych, nie zgadujemy.
  for(const opis of ["#gym #fitness #hipertrofia","Hipertrofia","",null,"🔥🔥🔥"])assert.equal(jezykOpisu(opis),null,String(opis));
@@ -40,6 +40,7 @@ async function test(){
  assert.equal(filtruj([{...post,data:null,krotnosc_wyswietlen:null}],f,teraz).posty.length,0);
  assert.equal(filtruj([{...post,data:null,krotnosc_wyswietlen:null}],{...f,niepelne:true},teraz).posty[0].braki_filtrow.length,2);
  assert.equal(filtruj([{...post,krotnosc_wyswietlen:2}],{...f,niepelne:true},teraz).posty.length,0);
+ const bezJezyka=filtruj([{...post,...porownaj(post,historia),jezyk:null}],{...f,niepelne:true},teraz);assert.equal(bezJezyka.posty.length,0,"Nieznany język nie jest pokazywany nawet z opcją niepełnych");assert.equal(bezJezyka.niepelne,1);
  const p=normalizuj({kod:"Abcdefgh",opis:"Your muscle growth: what works? Save this workout for your training.",licznik:"50 tys.",miniatura:"javascript:alert(1)",film:"https://evil.test/a",data:null},"muscle growth","https://www.instagram.com/popular/muscle-growth/");
  assert.equal(p.udostepnienia,null);assert.equal(p.komentarze,null);assert.equal(p.miniatura,"");assert.equal(p.film,"");assert.equal(p.data,null);
  assert.equal(normalizuj({kod:"__proto__"},"x",""),null);
@@ -84,7 +85,7 @@ async function test(){
  const pamiec2=new Map([["migracja/research_odkrywanie.json",stareDane]]),n2={sciezki:{dane:"migracja"},czytajJson:(p,d)=>structuredClone(pamiec2.get(p)??d),zapiszJson:(p,d)=>pamiec2.set(p,structuredClone(d)),odpowiedzJson:(r,k,d)=>{r.kod=k;r.dane=structuredClone(d)}};
  const res2={};await swiezy.obsluzOdkrywanie({method:'GET'},res2,new URL('http://localhost/api/research/odkrywanie'),n2);
  const poMigracji=pamiec2.get("migracja/research_odkrywanie.json");
- assert.equal(poMigracji.wersja_jezyka,3);assert.equal(poMigracji.posty.Es000001.jezyk,"inne");assert.equal(poMigracji.posty.Es000001.jezyk_zrodlo,undefined);
+ assert.equal(poMigracji.wersja_jezyka,4);assert.equal(poMigracji.posty.Es000001.jezyk,"inne");assert.equal(poMigracji.posty.Es000001.jezyk_zrodlo,undefined);
  assert.equal(poMigracji.posty.Es000002.jezyk,"inne");assert.equal(poMigracji.posty.Es000002.jezyk_zrodlo,"autor");assert.equal(poMigracji.historie.hiszpan.jezyk_autora,"inne");
  assert.equal(poMigracji.wyszukiwanie.potwierdzone,0);
  console.log("OK: frazy, język, brakujące dane, poprzednie rolki/mediana, filtry, walidacja, zapis, cache, zakres analizy, języki i migracja");

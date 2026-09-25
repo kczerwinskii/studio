@@ -36,6 +36,11 @@
     nl: "het een niet van voor met jij je jouw ook maar meer zeer hier als dan wordt kan kun moet spieren benen oefening oefeningen dit deze zijn naar bij om op uit over wat hoe waarom nooit altijd vandaag beter veel weinig week weken kracht lichaam",
   };
   const zbioryJezykow = Object.fromEntries(Object.entries(slowaJezykow).map(([j, s]) => [j, new Set(s.split(" "))]));
+  // Rdzenie slow w hashtagach, ktore zdradzaja jezyk (#boratreinar, #saudeebemestar, #treningsiłowy). Angielskie tagi sa uniwersalne, nie licza sie.
+  const rdzenieTagow = {
+    pl: ["trening", "silowni", "cwiczen", "miesni", "sylwetk", "odchudzan", "budowanie", "posladk", "plecy", "barki", "redukcj", "polska", "polski", "zdrowie", "motywacj", "dlaczego", "silowy", "silowa", "masamiesniowa", "przysiad", "martwy"],
+    inne: ["treino", "treinar", "saude", "musculacao", "academia", "emagrec", "dicas", "exercicio", "gluteo", "perna", "ganho", "massamuscular", "bemestar", "vidasaudavel", "bora", "calistenia", "resultado", "corpo", "brasil", "entrenamiento", "entrenar", "rutina", "ejercicio", "gimnasio", "musculacion", "salud", "piernas", "ganancia", "masamuscular", "bienestar", "vidasana", "fuerza", "cuerpo", "espana", "mexico", "argentina", "colombia", "krafttraining", "muskelaufbau", "fitnessstudio", "abnehmen", "gesundheit", "ubung", "beine", "rucken", "musculation", "entrainement", "sante", "exercice", "jambes", "fessiers", "prisedemasse", "allenamento", "palestra", "salute", "esercizi", "gambe", "glutei", "massamuscolare", "antrenman", "egzersiz", "sporsalonu", "saglik", "latihan", "olahraga", "kesehatan", "otot", "hipertrofiamuscular", "hipertrofiafeminina", "treinofeminino", "treinodepernas", "treinodegluteo", "musculo"],
+  };
   const polskieZnaki = /[ąęłżźćńś]/g, obceMocne = /[ñ¿¡ãõçßüöäıığşřěůőűțșđ]/g, obceSlabe = /[éáíúàèêôâîùûëïœæ]/g;
   function jezykOpisu(opis) {
     const surowy = String(opis || "").replace(/https?:\/\/\S+/g, "");
@@ -55,6 +60,7 @@
     const slowaTagow = uprosc(tagi).replace(/[^a-z ]/g, " ").split(" ").filter(Boolean);
     const trafieniaTagow = {};
     for (const slowo of slowaTagow) for (const [jezyk, zbior] of Object.entries(zbioryJezykow)) if (jezyk !== "en" && zbior.has(slowo)) trafieniaTagow[jezyk] = (trafieniaTagow[jezyk] || 0) + 1;
+    for (const tag of slowaTagow) for (const [jezyk, rdzenie] of Object.entries(rdzenieTagow)) if (rdzenie.some(rdzen => tag.includes(rdzen))) trafieniaTagow[jezyk] = (trafieniaTagow[jezyk] || 0) + 1;
     punkty.pl += (trafienia.pl || 0) + Math.min(2, trafieniaTagow.pl || 0); punkty.en += trafienia.en || 0;
     punkty.inne += Math.min(2, Math.max(0, ...Object.entries(trafieniaTagow).filter(([j]) => j !== "pl").map(([, n]) => n)));
     punkty.inne += Math.max(0, ...Object.entries(trafienia).filter(([j]) => j !== "pl" && j !== "en").map(([, n]) => n));
@@ -86,7 +92,8 @@
     for (const post of posty) {
       const braki = [], wiek = teraz - Date.parse(post.data);
       if (filtry.jezyk !== "all") {
-        if (!post.jezyk) braki.push("język");
+        // Nieznany jezyk nie jest pokazywany nawet z opcja "niepelne": Kuba chce tylko PL/EN, nie zgadujemy.
+        if (!post.jezyk) { niepelne++; powody.jezyk++; continue; }
         else if (post.jezyk !== "pl" && post.jezyk !== "en" || filtry.jezyk !== "both" && post.jezyk !== filtry.jezyk) { odrzucone++; powody.jezyk++; continue; }
       }
       if (Number(filtry.okres)) {

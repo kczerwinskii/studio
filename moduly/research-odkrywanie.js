@@ -9,12 +9,12 @@ const domyslnyProfil = { kim:"Trener od kształtowania sylwetki, prowadzenie onl
 const plik = n => path.join(n.sciezki.dane,"research_odkrywanie.json");
 function wczytaj(n) {
   const d={ profil:domyslnyProfil, posty:{}, historie:{}, zapisane:[], notatki:{}, frazy:{}, ostatnie:[], temat:"", wyszukiwanie:null, ...n.czytajJson(plik(n),{}) };
-  if(d.wersja_jezyka!==3){
-    // Wersja 3: mocniejszy detektor (alfabety, polskie znaki, slowa funkcyjne 10 jezykow) i jezyk autora z historii.
+  if(d.wersja_jezyka!==4){
+    // Wersja 4: mocniejszy detektor, rdzenie hashtagow (alfabety, polskie znaki, slowa funkcyjne 10 jezykow) i jezyk autora z historii.
     for(const p of [...Object.values(d.posty),...Object.values(d.historie).flatMap(h=>h.posty||[])]){p.jezyk=silnik.jezykOpisu(p.opis);delete p.jezyk_zrodlo;p.jezyk_metoda="Szacunek z opisu, nie z dźwięku filmu"}
     const {uzupelnijJezykAutora}=require("./research-pula");
     for(const [autor,h] of Object.entries(d.historie))uzupelnijJezykAutora(d,autor,h);
-    d.wersja_jezyka=3;
+    d.wersja_jezyka=4;
     if(d.wyszukiwanie?.filtry)d.wyszukiwanie.potwierdzone=require("./research-pula").podlicz(d,d.wyszukiwanie.filtry);
     n.zapiszJson(plik(n),d);
   }
