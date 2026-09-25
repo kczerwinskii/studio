@@ -459,10 +459,11 @@ async function wykonajWysylke(n, poz, tylkoTest) {
     if (!tylkoTest) {
       for (const [platforma, publikator] of [["facebook", opublikujNaFacebooku], ["youtube", opublikujNaYouTube], ["tiktok", opublikujNaTikToku]]) {
         // Ponowienie samego FB nie powtarza zakonczonych ani niepewnych wysylek.
+        if (poz.instagram?.media_id && platforma !== "facebook") continue;
         if (!poz[platforma] || poz[platforma + "_wynik"] || poz[platforma + "_proba"]) continue;
         try {
           if (!publikator) throw new Error("Brak modułu publikacji: " + platforma);
-          zmien(n, poz.id, (p) => { p[platforma + "_proba"] = true; });
+          if (platforma !== "facebook") zmien(n, poz.id, (p) => { p[platforma + "_proba"] = true; });
           const wynikPlatformy = await publikator(n, poz, ustawStatus);
           zmien(n, poz.id, (p) => { p[platforma + "_wynik"] = wynikPlatformy; p["blad_" + platforma] = null; });
         } catch (e) {
@@ -491,6 +492,15 @@ async function wykonajWysylke(n, poz, tylkoTest) {
 function odzyskaj(n) {
   zmien(n, null, (_, d) => {
     for (const p of d.pozycje) if (p.status === "wysylanie") {
+      if (p.instagram?.media_id) {
+        for (const platforma of ["facebook", "youtube", "tiktok"]) {
+          if (p[platforma] && !p[platforma + "_wynik"])
+            p["blad_" + platforma] = "Studio przerwano. Sprawdź wynik na platformie przed ponowną publikacją.";
+        }
+        if (p.etap === "facebook" && !p.facebook_wynik) p.niepewna = "facebook";
+        p.status = "opublikowane"; p.blad = null; p.etap = null; p.etap_opis = null;
+        continue;
+      }
       // Starsze wersje nie zapisywaly flagi niepewnego wyniku.
       if (!p.niepewna && p.etap === "publikacja" && !p.instagram?.media_id) p.niepewna = "instagram";
       if (!p.niepewna && p.etap === "facebook" && !p.facebook_wynik) p.niepewna = "facebook";

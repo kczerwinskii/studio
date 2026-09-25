@@ -83,8 +83,8 @@ async function test() {
     asercja.equal(pola.get("grant_type"), "authorization_code");
     asercja.equal(pola.get("code"), "kod");
     asercja.equal(pola.get("redirect_uri"), parametry.get("redirect_uri"));
-  } }, { dane: { items: [{ id: "kanal", snippet: { title: "Kanał testowy", thumbnails: { default: { url: "https://example.invalid/avatar" } } } }] }, sprawdz(adres, opcje) {
-    asercja.equal(adres.search, "?part=snippet&mine=true");
+  } }, { dane: { items: [{ id: "kanal", statistics: { subscriberCount: "512", videoCount: "10", viewCount: "12345" }, snippet: { title: "Kanał testowy", thumbnails: { default: { url: "https://example.invalid/avatar" } } } }] }, sprawdz(adres, opcje) {
+    asercja.equal(adres.search, "?part=snippet,statistics&mine=true");
     asercja.equal(opcje.headers.Authorization, "Bearer dostep-test");
   } });
   wynik = await wywolaj("/api/youtube/callback?code=kod&state=" + stan);
@@ -94,6 +94,8 @@ async function test() {
   asercja.equal(zapisaneTokeny().wygasa, new Date(czas + 3600000).toISOString());
   wynik = await wywolaj("/api/youtube/stan");
   asercja.equal(wynik.dane.kanal.tytul, "Kanał testowy");
+  asercja.equal(wynik.dane.kanal.subskrybenci, 512);
+  asercja.equal(zapisaneTokeny().kanal.wyswietlenia, 12345);
   asercja.equal(JSON.stringify(wynik.dane).includes("dostep-test"), false);
   asercja.equal(JSON.stringify(wynik.dane).includes("odswiez-test"), false);
   asercja.equal((await wywolaj("/api/youtube/callback?code=kod&state=" + stan)).kod, 400, "State jest jednorazowy");
@@ -191,7 +193,40 @@ async function test() {
   asercja.equal((await wywolaj("/api/youtube/callback?code=x&state=" + przedRozlaczeniem.searchParams.get("state"))).kod, 400);
   await asercja.rejects(youtube.opublikujNaYouTube(n, pozycja), /wylogował/);
   asercja.equal((await wywolaj("/api/youtube/rozlacz", "POST")).kod, 200);
-  console.log("OK: OAuth, callback, tokeny, metadane, błędy, strumień i wznowienie wysyłki, rozłączenie (offline)");
+  // Statystyki: jeden odczyt na 10 minut, wspolny dla rownoleglych odswiezen.
+  czas += 3600000;
+  n.zapiszJson(plikTokenu, { access_token: "stat-dostep", refresh_token: "stat-odswiez",
+    wygasa: new Date(czas + 3600000).toISOString(), kanal: { id: "kanal", tytul: "Kanał" } });
+  const statystyki = (ile) => ({ items: [{ id: "kanal", snippet: { title: "Kanał" },
+    statistics: { subscriberCount: String(ile), videoCount: "12", viewCount: "3456" } }] });
+  const przedStatystykami = liczbaZadan;
+  scenariusz.push({ dane: statystyki(1234) });
+  const odczyty = await Promise.all([wywolaj("/api/youtube/stan"), wywolaj("/api/youtube/stan")]);
+  asercja.equal(liczbaZadan, przedStatystykami + 1);
+  asercja.equal(odczyty[0].dane.kanal.subskrybenci, 1234);
+  asercja.equal(zapisaneTokeny().kanal.filmy, 12);
+  asercja.equal(zapisaneTokeny().kanal.wyswietlenia, 3456);
+  asercja.ok(!JSON.stringify(odczyty).includes("stat-dostep"));
+  czas += 599999;
+  await wywolaj("/api/youtube/stan");
+  asercja.equal(liczbaZadan, przedStatystykami + 1);
+  czas++;
+  scenariusz.push({ dane: statystyki(1235) });
+  asercja.equal((await wywolaj("/api/youtube/stan")).dane.kanal.subskrybenci, 1235);
+  czas += 600000;
+  scenariusz.push({ kod: 503 });
+  asercja.equal((await wywolaj("/api/youtube/stan")).dane.kanal.subskrybenci, 1235);
+  const poAwarii = liczbaZadan;
+  await wywolaj("/api/youtube/stan");
+  asercja.equal(liczbaZadan, poAwarii);
+  czas += 600000;
+  scenariusz.push({ dane: statystyki(9999), sprawdz() { rozlaczenie = wywolaj("/api/youtube/rozlacz", "POST"); } });
+  asercja.equal((await wywolaj("/api/youtube/stan")).dane.polaczony, false);
+  await rozlaczenie;
+  asercja.equal(fs.existsSync(plikTokenu), false);
+  asercja.equal(scenariusz.length, 0);
+  if (bladAtrapy) throw bladAtrapy;
+  console.log("OK: OAuth, callback, tokeny, metadane, błędy, strumień i wznowienie wysyłki, rozłączenie, statystyki i cache 10 minut (offline)");
 }
 
 test().catch((blad) => { console.error(bladAtrapy || blad); process.exitCode = 1; }).finally(() => {

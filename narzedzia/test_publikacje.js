@@ -52,6 +52,88 @@ async function test(nazwa, fn) {
 }
 
 async function main() {
+  await test("zapis waliduje pola YouTube i TikToka bez częściowych zmian", async () => {
+    const s = srodowisko([{ id: "a", status: "szkic" }]);
+    const pola = { youtube: true, youtube_tytul: "💪".repeat(100), youtube_tagi: ["trening"], tiktok: true };
+    assert.equal((await s.trasa("/api/publikacje/zapisz", { id: "a", ...pola })).status, 200);
+    assert.equal(s.dane().pozycje[0].youtube_prywatnosc, "private");
+    assert.equal(s.dane().pozycje[0].tiktok_widocznosc, "SELF_ONLY");
+    for (const bledne of [{ youtube: "true" }, { tiktok: 1 }, { youtube_tytul: "x".repeat(101) },
+      { youtube_tytul: null }, { youtube_tagi: "tag" }, { youtube_tagi: [1] },
+      { youtube_prywatnosc: "inna" }, { tiktok_widocznosc: "inna" }]) {
+      const przed = JSON.stringify(s.dane());
+      assert.equal((await s.trasa("/api/publikacje/zapisz", { id: "a", opis: "nie zapisuj", ...bledne })).status, 400);
+      assert.equal(JSON.stringify(s.dane()), przed);
+    }
+    for (const youtube_prywatnosc of ["private", "unlisted", "public"])
+      assert.equal((await s.trasa("/api/publikacje/zapisz", { id: "a", youtube_prywatnosc })).status, 200);
+    for (const tiktok_widocznosc of ["SELF_ONLY", "PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR"])
+      assert.equal((await s.trasa("/api/publikacje/zapisz", { id: "a", tiktok_widocznosc })).status, 200);
+  });
+  await test("kolejność IG, FB, YouTube, TikTok i izolacja każdej awarii", async () => {
+    for (const awaria of [null, "instagram", "facebook", "youtube", "tiktok"]) {
+      const s = srodowisko([{ id: "a", status: "szkic", facebook: true, youtube: true, tiktok: true }]);
+      const kolejnosc = [], publikatorzy = {};
+      for (const platforma of ["instagram", "facebook", "youtube", "tiktok"]) publikatorzy[platforma] = async (n, p, status) => {
+        kolejnosc.push(platforma); status(platforma, "praca");
+        if (platforma === awaria) throw Error("token=sekret awaria " + platforma);
+        return { media_id: "ig", video_id: platforma, publish_id: "tt" };
+      };
+      s.k.module.exports._ustawPublikatorow(publikatorzy);
+      if (awaria === "instagram") {
+        await assert.rejects(s.k.wyslij(s.n, "a", false));
+        assert.deepEqual(kolejnosc, ["instagram"]);
+      } else {
+        await s.k.wyslij(s.n, "a", false);
+        assert.deepEqual(kolejnosc, ["instagram", "facebook", "youtube", "tiktok"]);
+        const p = s.dane().pozycje[0];
+        assert.equal(p.status, "opublikowane"); assert.equal(p.blad, null);
+        for (const platforma of ["facebook", "youtube", "tiktok"]) {
+          if (platforma === awaria) { assert.match(p["blad_" + platforma], /awaria/); assert.ok(!p["blad_" + platforma].includes("sekret")); }
+          else assert.ok(p[platforma + "_wynik"]);
+        }
+        if (awaria === "facebook") {
+          kolejnosc.length = 0;
+          await s.k.wyslij(s.n, "a", false);
+          assert.deepEqual(kolejnosc, ["facebook"], "ponowienie FB nie powtarza YT i TT");
+        }
+      }
+    }
+  });
+  await test("tryb testowy i niezaznaczone platformy pomijają dodatkowe publikatory", async () => {
+    for (const tylkoTest of [true, false]) {
+      const s = srodowisko([{ id: "a", status: "szkic", facebook: tylkoTest, youtube: tylkoTest, tiktok: tylkoTest }]);
+      const kolejnosc = [];
+      const dodatkowy = async () => { kolejnosc.push("nie wolno"); };
+      s.k.module.exports._ustawPublikatorow({ instagram: async () => ({ media_id: "ig", kontener: "test" }),
+        facebook: dodatkowy, youtube: dodatkowy, tiktok: dodatkowy });
+      await s.k.wyslij(s.n, "a", tylkoTest);
+      assert.deepEqual(kolejnosc, []);
+    }
+  });
+  await test("brak modułów nie blokuje IG, odczyt kont nie ujawnia tokenów", async () => {
+    const s = srodowisko([{ id: "a", status: "szkic", youtube: true, tiktok: true }]);
+    s.k.module.exports._ustawPublikatorow({ instagram: async () => ({ media_id: "ig" }) });
+    await s.k.wyslij(s.n, "a", false);
+    assert.equal(s.dane().pozycje[0].status, "opublikowane");
+    assert.match(s.dane().pozycje[0].blad_youtube, /Brak modułu/);
+    assert.match(s.dane().pozycje[0].blad_tiktok, /Brak modułu/);
+    s.kod('facebookDostepny = async () => false');
+    const czytaj = s.n.czytajJson;
+    s.n.czytajJson = (plik, domyslne) => plik.endsWith("publikacje.json") ? czytaj(plik, domyslne) : {
+      refresh_token: "sekret", access_token: "sekret", refresh_wygasa: "2099-01-01",
+      kanal: { id: "yt", tytul: "Kanał", token: "sekret" }, konto: { open_id: "tt", nazwa: "Konto", token: "sekret" } };
+    const odp = await s.trasa("/api/publikacje", null, "GET");
+    assert.equal(odp.dane.youtube.polaczony, true); assert.equal(odp.dane.tiktok.polaczony, true);
+    assert.ok(!JSON.stringify(odp.dane).includes("sekret"));
+  });
+  await test("restart podczas YouTube zachowuje sukces Instagrama", async () => {
+    const s = srodowisko([{ id: "a", status: "wysylanie", instagram: { media_id: "ig" }, youtube: true, youtube_proba: true, etap: "youtube" }]);
+    s.k.odzyskaj(s.n);
+    assert.equal(s.dane().pozycje[0].status, "opublikowane");
+    assert.match(s.dane().pozycje[0].blad_youtube, /Sprawdź/);
+    assert.throws(() => s.k.wyslij(s.n, "a", false), { http: 409 });
+  });
   await test("transakcje zachowują inne pozycje i pola, wyjątek nie zapisuje zmian", async () => {
     const s = srodowisko([{ id: "a", opis: "stary" }]);
     s.k.zmien(s.n, "a", (p) => { p.opis = "nowy"; });
@@ -268,13 +350,24 @@ async function main() {
         return { ok: true, json: async () => ({ pozycja, pozycje: [pozycja] }) };
       },
     });
-    vm.runInContext(zrodlo.replace("  return { start };", "  return { start, st, zapiszPole, dokonczZapisy, rozpocznij, wczytaj, bezRysowania: () => { rysuj = () => {}; } };"), k);
+    vm.runInContext(zrodlo.replace("  return { start };", "  return { start, st, zapiszPole, dokonczZapisy, rozpocznij, wczytaj, polaPlatform, wynikiPlatform, bezRysowania: () => { rysuj = () => {}; } };"), k);
     const ui = k.window.Publikacje; ui.bezRysowania();
+    assert.match(ui.polaPlatform({}, false), /YouTube: połącz w Ustawieniach/);
+    ui.st.youtube = { polaczony: true }; ui.st.tiktok = { polaczony: true };
+    const formularz = ui.polaPlatform({ opis: "Pierwsza linia\nDruga", youtube: true, tiktok: true }, false);
+    assert.match(formularz, /value="Pierwsza linia"/);
+    assert.match(formularz, /value="private" selected/);
+    assert.match(formularz, /value="SELF_ONLY" selected/);
+    assert.match(ui.wynikiPlatform({ tiktok_wynik: { widocznosc: "SELF_ONLY" } }), /widoczne tylko dla Ciebie/);
+    assert.ok(!ui.wynikiPlatform({ tiktok_wynik: { widocznosc: "PUBLIC_TO_EVERYONE" } }).includes("tylko dla Ciebie"));
+    assert.match(ui.wynikiPlatform({ blad_youtube: "<błąd>" }), /&lt;błąd&gt;/);
     ui.st.pozycje = [pozycja]; ui.st.robocze.a = { opis: "najnowszy opis" };
-    const zapis = ui.zapiszPole("a", { facebook: true });
+    const zapis = ui.zapiszPole("a", { facebook: true, youtube: true, tiktok: true });
     await ui.rozpocznij("a", false); await zapis;
     assert.match(potwierdzenia[0], /najnowszy opis/);
     assert.match(potwierdzenia[0], /Facebooku/);
+    assert.match(potwierdzenia[0], /YouTube/);
+    assert.match(potwierdzenia[0], /TikToku/);
     const przedWysylka = wywolania.findIndex((x) => x.sc.endsWith("wyslij"));
     assert.equal(wywolania[przedWysylka - 1].dane.opis, "najnowszy opis");
     awaria = true; ui.st.wysylanie = null; ui.st.robocze.a = { opis: "niezapisany" };

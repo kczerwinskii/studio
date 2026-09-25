@@ -114,6 +114,7 @@ async function pobierzWszystkie(narzedzia, konta) {
 }
 
 async function obsluz(zadanie, odpowiedz, url, narzedzia) {
+  if (await require("./research-odkrywanie").obsluzOdkrywanie(zadanie, odpowiedz, url, narzedzia)) return true;
   const adres = url.pathname;
   if (adres !== "/api/research" && !adres.startsWith("/api/research/")) return false;
   const wyslij = (kod, dane) => { narzedzia.odpowiedzJson(odpowiedz, kod, dane); return true; };

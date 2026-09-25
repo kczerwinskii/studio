@@ -88,6 +88,32 @@ Wspólne pliki i cudze moduły pozostają bez zmian; panel jest przygotowany do 
 
 Na bezpośrednią prośbę Kuby dodaję kolumnę Udostępnienia obok Zapisów w istniejącym układzie. Zmiana obejmuje app/index.html, app/app.js i numer ukrywanej kolumny obserwujących w app/style.css. Dane udostepnienia są już pobierane; bez zmian w API i innych modułach.
 
-## 2026-09-24, Codex: rozpocz?cie zadania 07
+## 2026-09-24, Codex: rozpoczęcie zadania 07
 
-Na polecenie Kuby wykonuj? pe?ne wpi?cie YouTube i TikToka, edytuj?c oba pliki Publikacji oraz w?asne pliki YouTube. Pola interfejsu realizuj? wed?ug konkretnego opisu zadania, z istniej?cymi klasami. Pracuj? wy??cznie offline, a testy u?yj? atrap publikator?w i transportu.
+Na polecenie Kuby wykonuję pełne wpięcie YouTube i TikToka, edytując oba pliki Publikacji oraz własne pliki YouTube. Pola interfejsu realizuję według konkretnego opisu zadania, z istniejącymi klasami. Pracuję wyłącznie offline, a testy użyją atrap publikatorów i transportu.
+
+## 2026-09-24, Codex: zadanie 07 zakończone
+
+YouTube i TikTok są wpięte w Publikacje: walidacja pól, stan kont bez sekretów, przełączniki, tytuł, prywatność, zapis po 600 ms, pełne potwierdzenie i osobne wyniki. Kolejność to Instagram, Facebook, YouTube, TikTok; awaria dodatkowej platformy nie zatrzymuje kolejnych ani nie zmienia sukcesu IG, a test nie dotyka dodatkowych platform. Próby YouTube/TikToka są zapisywane przed wysyłką, ponowienie Facebooka nie powtarza tych publikacji, a restart wskazuje sprawdzenie nieukończonych wyników na platformach. Panel YouTube pokazuje subskrybentów, statystyki kanału są zapisywane przy łączeniu i odświeżane maksymalnie co 10 minut, z ochroną przed odtworzeniem konta po rozłączeniu. Testy offline: Publikacje 26 przypadków, YouTube wraz z cache i statystykami OK, TikTok 17 przypadków, wszystkie kod 0; składnia czterech modułów poprawna. Nie zmieniałem wspólnych plików ani nie używałem sieci lub prawdziwych API; test działania na kontach i wizualny przegląd okna pozostają do późniejszej weryfikacji.
+
+## 2026-09-24, Codex: Research po temacie, zatwierdzona makieta
+
+Na bezpośrednie polecenie Kuby wdrożyłem karty, profile, frazy PL/EN, 12/24/30 wyników, filtry dat i mnożnika oraz zapisane/notatki, zachowując dawny panel kont jako opcjonalny. Publiczny adapter Electrona pobrał rzeczywiście 12 rolek dla hypertrophy wraz z miniaturami, linkami i przybliżonymi wyświetleniami; research blokuje pobieranie filmów i kończy pracę przy blokadzie Instagrama. Źródło nie daje obecnie dat, komentarzy, udostępnień ani historii wyświetleń, więc ścisłe filtry domyślnie wykluczają braki; kandydaci są osobno oznaczeni. Analiza jest jawnie częściowym raportem opisu/statystyk, bez oglądania obrazu i audio; pełna analiza i potwierdzone mnożniki pozostają niedokończonym wymaganiem, opisanym w RESEARCH-TEMATY.md. Testy silnika/API, starych tras i panelu przechodzą; próba źródła w Electronie także. Nie zmieniałem serwer.js, main.js, app/index.html, app/app.js, app/style.css ani plików Publikacji; trzeba ponownie otworzyć Studio, aby serwer załadował nowy moduł.
+
+## 2026-09-24, Codex: audyt 27 niepełnych wyników i poprawka pobierania
+
+Sprawdziłem wszystkie 27 kandydatów z rzeczywistego wyszukiwania Kuby: publiczne permalinki pozwoliły odzyskać 27 dat i polubienia/komentarze 26 rolek. Cztery były z ostatnich 30 dni, żadna z ostatnich 7; dotychczasowy parser w ogóle nie odwiedzał tych stron. Odczytałem także 48 rolek z czterech profili: jeden kandydat ma około 7,04x mediany 9 wcześniejszych rolek, dla pozostałych historia wcześniejsza jest niewystarczająca. Wdrożyłem automatyczne uzupełnianie szczegółów i historii, odrzucanie dat komentarzy, oznaczanie przybliżeń oraz zakaz liczenia mediany z samych trafień wyszukiwarki. Uzupełniłem dane Kuby po sprawdzeniu bezczynności serwera, z kopią poprzedniego JSON i zachowaniem notatek/profilu/zapisanych; testy silnika, tras, parsera DOM i panelu przeszły. Raport i ograniczenia: AUDYT-RESEARCH-2026-09-24.md; po restarcie Studio filtr 30 dni i 5x daje jeden wynik, bez udawania kompletnego indeksu trendów.
+
+## 24.09.2026, Codex: szersze frazy i uczciwe wyniki Research
+
+Rozszerzyłem temat budowania sylwetki na sześć fraz PL/EN, bez filtrowania przez profil Kuby. Test publicznego źródła dał 48 kandydatów, lecz tylko 1 potwierdzony wynik przy 30 dniach i minimum 3×; 4 mają braki, 13 odpada za język i 30 za datę. Panel pokazuje przyczyny i odróżnia trwającą weryfikację od pustego końcowego wyniku. Testy silnika, tras, DOM i panelu przeszły; aktualne dane zapisane z kopią zapasową. Wąskim gardłem pozostaje źródło świeżych rolek i pełniejszej historii, a nie profil. Szczegóły w RESEARCH-TEMATY.md; potrzebny restart Studio, nie zmieniałem wspólnego serwera ani Publikacji.
+
+## 24.09.2026, Codex: diagnoza braku wyników fitness
+
+Źródło /popular/fitness/ zwraca stronę niedostępną mimo HTTP 200; panel błędnie pokazywał wtedy instrukcję pierwszego wyszukiwania. Poprawiłem wykrywanie tego błędu, trwały stan wyszukiwania i obsługę tematu przy Enterze oraz dodałem powiązane frazy fitness. Pełna próba: fitness 36 kandydatów, ale 0 potwierdzonych z ostatnich 30 dni; hipertrofia 1 potwierdzony z cache. Oficjalna próba hashtagów Meta odrzucona kodem 10, wymaga zatwierdzenia Instagram Public Content Access. Zmiany nie rozwiązują zasadniczego braku wiarygodnego źródła świeżych viralów; nie obiecywać Kubie kompletnej wyszukiwarki. Szczegóły i testy w RESEARCH-TEMATY.md.
+
+## 24.09.2026, Codex: Meta odblokowana do testów, większa pula Research
+
+Po zalogowaniu Kuby dodałem Instagram Public Content Access w istniejącej aplikacji Meta. Status Ready for testing; bez wysłania App Review i bez zmiany tokena działają hashtagi oraz historie Business Discovery z view_count. Research dostał osobny cel 30/60/100, kolejne strony i nowych autorów, pełniejsze historie oraz wznowienie po limicie z zachowaniem wyników. Poprawiłem też język opisów: angielskie hashtagi nie wystarczają do uznania rolki za angielską. Rzeczywista próba zebrała 495 kandydatów, a po kontroli języka 12 spełnia PL+EN/30 dni/3×; dojście do 30 przerwał limit API code 4, więc nie jest jeszcze potwierdzone na żywym koncie. Testy 30/60 na danych kontrolowanych, stronicowania, wznowienia, filtrów, DOM i panelu przechodzą; opis stanu i dalszego priorytetu: RESEARCH-TEMATY.md. Wyniki próby zapisane w danych aplikacji z kopią, zachowano profil/notatki/zapisane. Wspólnych plików i Publikacji nie zmieniałem; poprosiłem Kubę o restart Studio, konieczny do załadowania nowego modułu.
+
+24.09.2026, Codex, uzupełnienie: Kuba ponownie uruchomił Studio. Prawdziwy panel przeszedł kontrolę: 12 wyników, wybór celu 30/60/100 i oczekiwanie na ponowienie. Automatyczna próba o 22:37 faktycznie ruszyła, ale Meta nadal zwróciła code 4; kolejna o 22:52. Dalszy restart nie jest potrzebny. Cel 30 pozostaje do osiągnięcia po ustąpieniu limitu.

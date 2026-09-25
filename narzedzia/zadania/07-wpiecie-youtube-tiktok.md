@@ -49,3 +49,17 @@ i przy `GET /api/youtube/stan` odświeżaj statystyki nie częściej niż raz na
 `filmy`, `wyswietlenia` z `statistics` w `config/youtube_token.json` obok danych kanału, bez tokenów w odpowiedzi).
 Format: `Kuba Czerwiński · 1 234 subskrybentów` (`toLocaleString("pl-PL")`, odmiana: 1 subskrybent, 2-4 subskrybentów...
 wystarczy „subskrybentów" dla wszystkich liczb poza 1).
+
+## Wynik, Codex, 2026-09-24
+
+Wykonane w całości offline. `moduly/publikacje.js` ładuje oba moduły opcjonalnie, waliduje nowe pola, zwraca bezpieczny stan kont i wysyła kolejno Instagram, Facebook, YouTube, TikTok. Błędy dodatkowych platform są osobne i nie cofają sukcesu Instagrama; tryb testowy ich nie uruchamia. Trwałe oznaczenie próby YouTube/TikToka chroni przed powtórzeniem przy ponowieniu Facebooka, a odzyskiwanie po restarcie zachowuje wynik IG i wskazuje sprawdzenie pozostałych platform.
+
+`app/publikacje.js` ma przełączniki kont, tytuł z licznikiem Unicode, wybór prywatności i widoczności, informacje o audytach oraz osobne wyniki i błędy. Nowe pola zapisują się po 600 ms, a publikacja kończy zapisy przed potwierdzeniem wszystkich wybranych platform. `moduly/youtube.js` pobiera snippet i statistics przy łączeniu, zapisuje subskrybentów, filmy i wyświetlenia w danych kanału, a stan odświeża statystyki najwyżej raz na 10 minut, także po błędzie i przy równoległych odczytach. `app/youtube.js` pokazuje liczbę subskrybentów po polsku; brak lub ukryta liczba nie jest przedstawiana jako zero.
+
+Testy:
+- `node narzedzia/test_publikacje.js`: OK, 26 testów offline, kod 0.
+- `node narzedzia/test_youtube.js`: OK, także statystyki przy łączeniu, odświeżanie, cache 10 minut, równoległe odczyty, awaria i rozłączenie w trakcie odczytu, kod 0.
+- `node narzedzia/test_tiktok.js`: OK, 17 testów offline, kod 0.
+- `node --check` dla czterech zmienionych modułów aplikacji: OK.
+
+Wpis dodany do `narzedzia/DYSKUSJA.md`. Bez zmian wspólnych plików, instalacji pakietów, sieci, prawdziwych wywołań API ani sterowania aplikacją użytkownika. Weryfikacja rzeczywistego logowania i publikacji pozostaje do późniejszej próby online; wyglądu nie sprawdzano w uruchomionym oknie.

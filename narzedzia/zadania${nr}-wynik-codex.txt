@@ -1,3 +1,3 @@
-Wykonane: moduł TikToka, panel ustawień i test offline.
+Wykonane w całości offline: YouTube i TikTok w Publikacjach oraz licznik subskrybentów YouTube.
 
-17 testów przeszło, składnia poprawna. Wynik dopisałem do zadania, a instrukcje integracji do `DYSKUSJA.md`. Bez sieci, wywołań API i zmian w plikach wspólnych.
+Testy OK: Publikacje 26, TikTok 17, YouTube wraz z odświeżaniem statystyk. Wyniki dopisane do zadania i `DYSKUSJA.md`. Bez sieci i prawdziwych wywołań API.

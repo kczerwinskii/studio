@@ -439,7 +439,7 @@ window.Publikacje = (() => {
     }
     const klatki = st.klatki[p.id] || [];
     const blokada = p.status === "wysylanie" || p.status === "opublikowane" || !!p.instagram?.media_id || !!p.niepewna;
-    const moznaPonowicFb = p.status === "blad" && p.instagram?.media_id && p.facebook && !p.facebook_wynik && !p.niepewna;
+    const moznaPonowicFb = ["blad", "opublikowane"].includes(p.status) && p.instagram?.media_id && p.facebook && !p.facebook_wynik && !p.niepewna;
     panel.innerHTML = `
       <div class="pub-panel-gora">
         ${miniatura(p, "pub-okladka")}

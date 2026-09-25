@@ -1,222 +1,95 @@
 "use strict";
-// Zakladka Research, wspolne klasy i paleta jak w Publikacjach.
 window.Research = (() => {
-  const znajdz = (selektor) => document.querySelector(selektor);
-  const bezpiecznyTekst = (tekst) => String(tekst ?? "").replace(/[&<>"']/g, (znak) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[znak]));
-  const liczba = (wartosc) => wartosc == null ? "brak danych" : wartosc.toLocaleString("pl-PL", { maximumFractionDigits: 1 });
-  const data = (wartosc) => wartosc && Number.isFinite(Date.parse(wartosc)) ? new Date(wartosc).toLocaleDateString("pl-PL") : "jeszcze nie pobrano";
-  const adres = (wartosc) => {
-    try { const url = new URL(wartosc); return url.protocol === "https:" ? bezpiecznyTekst(url.href) : ""; } catch { return ""; }
-  };
-  const stan = { dane: { konta: [], posty: {}, notatki: {}, ustawienia: { prog: 3 } },
-    konto: "", szukaj: "", rolki: true, sort: "krotnosc", kierunek: -1, wybrany: null,
-    w_toku: false, zajety: false, petla: null, uruchomiony: false, notatki: new Map() };
-
-  async function api(sciezka, dane, metoda = "POST") {
-    const odpowiedz = await fetch("/api/research" + sciezka, dane === undefined ? undefined : {
-      method: metoda, headers: { "Content-Type": "application/json" }, body: JSON.stringify(dane),
-    });
-    const wynik = await odpowiedz.json();
-    if (!odpowiedz.ok) throw new Error(wynik.blad || "Nie udało się wykonać operacji.");
-    return wynik;
+  const $=s=>document.querySelector(s), tekst=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const liczba=n=>n==null?"brak danych":Number(n).toLocaleString("pl-PL",{notation:n>=10000?"compact":"standard",maximumFractionDigits:1});
+  const data=s=>Number.isFinite(Date.parse(s))?new Date(s).toLocaleDateString("pl-PL"):"data nieznana";
+  const stan={start:false,dane:null,tab:"odkrywaj",strona:0,wybrany:null,zegar:null,notatki:new Map(),zajety:false,profilBrudny:false,pierwszyOdczyt:true,tematFraz:""};
+  async function api(trasa="",cialo){const r=await fetch("/api/research/odkrywanie"+trasa,cialo===undefined?{}:{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(cialo)});const w=await r.json();if(!r.ok)throw new Error(w.blad||"Operacja nie powiodła się.");return w}
+  function komunikat(s){$("#od-komunikat").textContent=s}
+  async function wykonaj(f){try{await f()}catch(e){komunikat(e.message)}}
+  function skrypt(src){return new Promise((ok,blad)=>{const s=document.createElement("script");s.src=src;s.onload=ok;s.onerror=()=>blad(new Error("Nie udało się załadować panelu."));document.head.appendChild(s)})}
+  function cdn(s){try{const u=new URL(s);return u.protocol==="https:"&&/(^|\.)(cdninstagram\.com|fbcdn\.net)$/.test(u.hostname)?tekst(u.href):""}catch{return ""}}
+  function frazy(){stan.tematFraz=$("#od-temat").value.trim();const w=ResearchSilnik.rozszerz($("#od-temat").value,$("#od-jezyk").value);$("#od-frazy").value=w.frazy.join("\n");$("#od-frazy-status").textContent=w.przetlumaczone?"Frazy: "+w.frazy.join(" · ")+". Możesz je edytować powyżej.":"Szukam dokładnie wpisanej frazy. Brak automatycznych rozszerzeń PL/EN dla tego tematu."}
+  function szkielet(){
+    const styl=document.createElement("link");styl.rel="stylesheet";styl.href="research.css";document.head.appendChild(styl);
+    $("#research-tresc").innerHTML=`<div id="odkrywanie">
+    <details class="od-profil"><summary>Twój profil i tematy</summary><form id="od-profil-form"><div class="od-profil-pola"><label>Kim jesteś<input id="od-kim" maxlength="2000"></label><label>Dla kogo tworzysz<input id="od-odbiorcy" maxlength="2000"></label><label>Twoje tematy<input id="od-tematy" maxlength="2000"></label></div><button class="przycisk">Zapisz profil</button><span id="od-profil-status" role="status"></span></form></details>
+    <form id="od-form"><div class="od-szukaj"><input id="od-temat" value="hipertrofia" maxlength="100" required aria-label="Temat researchu"><button class="przycisk zloty" id="od-szukaj">Znajdź rolki</button></div>
+    <div class="od-filtry"><label>Język opisu<select id="od-jezyk"><option value="both">Polski i angielski</option><option value="pl">Polski</option><option value="en">Angielski, wszystkie kraje</option></select></label><label>Opublikowane<select id="od-okres"><option value="7">Ostatnie 7 dni</option><option value="30" selected>Ostatnie 30 dni</option><option value="0">Bez ograniczenia</option></select></label><label>Ponad typowy wynik<select id="od-prog"><option value="3">Minimum 3×</option><option value="4">Minimum 4×</option><option value="5">Minimum 5×</option><option value="0">Wszystkie</option></select></label><label>Ile rolek znaleźć<select id="od-cel"><option selected>30</option><option>60</option><option>100</option></select></label><label>Na stronie<select id="od-limit"><option>12</option><option>24</option><option selected>30</option></select></label></div>
+    <details class="od-zapytania"><summary>Frazy wyszukiwania i źródło</summary><label>Jedna fraza w wierszu, maksymalnie 6<textarea id="od-frazy" rows="4" maxlength="606"></textarea></label><p id="od-zrodlo-status" class="od-pod">Źródło danych jest sprawdzane. Język jest szacowany z opisu. Kraj autora i odbiorców pozostaje nieznany.</p><div id="od-linki"></div></details></form>
+    <p id="od-frazy-status" class="od-pod" role="status"></p><label class="od-niepelne"><input type="checkbox" id="od-niepelne"> Pokaż także kandydatów bez danych do potwierdzenia filtrów</label><div id="od-postep" role="status"></div><button class="przycisk" id="od-stop" hidden>Zatrzymaj wyszukiwanie</button><div id="od-komunikat" role="status"></div>
+    <nav class="od-zakladki" aria-label="Research"><button class="wybrana" data-od-tab="odkrywaj">Odkrywaj</button><button data-od-tab="zapisane">Zapisane <span id="od-ile-zapisanych">0</span></button><button data-od-tab="konta">Obserwowani twórcy</button></nav>
+    <section id="od-wyniki"><div id="od-podsumowanie" class="od-pod" role="status"></div><div id="od-karty"></div><div id="od-strony"></div></section><section id="od-szczegoly" hidden></section><section id="od-konta" hidden><p class="od-pod">Opcjonalny starszy widok. Porównuje polubienia i komentarze, nie wyświetlenia.</p><div id="research-konta-tresc"></div></section></div>`;
+    $("#od-temat").oninput=frazy;$("#od-temat").onchange=frazy;$("#od-jezyk").onchange=()=>{frazy();stan.strona=0;render()};
+    for(const id of ["okres","prog","limit","niepelne"])$("#od-"+id).onchange=()=>{stan.strona=0;render()};
+    $("#od-form").onsubmit=e=>{e.preventDefault();void wykonaj(async()=>{if(stan.zajety||stan.dane?.postep?.w_toku)return;if(stan.tematFraz!==$("#od-temat").value.trim())frazy();stan.zajety=true;$("#od-szukaj").disabled=true;komunikat("");try{await api("/szukaj",{temat:$("#od-temat").value,frazy:$("#od-frazy").value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),cel:Number($("#od-cel").value),filtry:{jezyk:$("#od-jezyk").value,okres:Number($("#od-okres").value),prog:Number($("#od-prog").value)}});stan.strona=0;await odswiez()}finally{stan.zajety=false;$("#od-szukaj").disabled=!!stan.dane?.postep?.w_toku}})};
+    $("#od-stop").onclick=()=>void wykonaj(async()=>{await api("/zatrzymaj",{});$("#od-stop").disabled=true;await odswiez()});
+    $("#od-profil-form").oninput=()=>{stan.profilBrudny=true;$("#od-profil-status").textContent="Niezapisane zmiany"};
+    $("#od-profil-form").onsubmit=e=>{e.preventDefault();void wykonaj(async()=>{const p={kim:$("#od-kim").value,odbiorcy:$("#od-odbiorcy").value,tematy:$("#od-tematy").value};await api("/profil",p);stan.dane.profil=p;stan.profilBrudny=false;$("#od-profil-status").textContent="Zapisano"})};
+    document.querySelectorAll("[data-od-tab]").forEach(b=>b.onclick=()=>void wykonaj(async()=>{stan.tab=b.dataset.odTab;stan.strona=0;zamknij();document.querySelectorAll("[data-od-tab]").forEach(a=>a.classList.toggle("wybrana",a===b));$("#od-wyniki").hidden=stan.tab==="konta";$("#od-konta").hidden=stan.tab!=="konta";if(stan.tab==="konta"){if(!window.ResearchKonta)await skrypt("research-konta.js");await ResearchKonta.start()}else render()}));
+    $("#od-karty").onclick=e=>{const b=e.target.closest("button[data-id]");if(b)void wykonaj(()=>b.dataset.akcja==="zapisz"?zapisz(b.dataset.id):szczegoly(b.dataset.id,b.dataset.akcja==="analiza"))};frazy();
   }
-  function komunikat(tekst) { znajdz("#res-komunikat").textContent = tekst; }
-  function blokady() {
-    document.querySelectorAll("#res-dodaj, #res-pobierz, #res-konta button").forEach((przycisk) => {
-      przycisk.disabled = stan.w_toku || stan.zajety;
-    });
-    znajdz("#res-prog").disabled = stan.zajety;
+  function pustyStan(ids){
+    if(stan.tab==="zapisane")return ids.size?"Żadna zapisana rolka nie spełnia wybranych filtrów.":"Nie masz jeszcze zapisanych inspiracji.";
+    if(stan.dane.postep.w_toku)return "Sprawdzam daty i historię twórców. Wyniki pojawią się po potwierdzeniu filtrów.";
+    if(stan.dane.wyszukiwanie?.stan==="przerwane")return "Poprzednie wyszukiwanie zostało przerwane. Uruchom je ponownie.";
+    if(ids.size)return "W sprawdzonej puli nie ma potwierdzonych wyników. Powody odrzucenia podano powyżej.";
+    if(stan.dane.postep.bledy.length||stan.dane.wyszukiwanie?.stan==="blad")return "Nie udało się pobrać kandydatów z dostępnego źródła. Filtry nie są przyczyną. Nie oznacza to, że na Instagramie nie ma rolek na ten temat.";
+    return stan.dane.temat?"Źródło nie zwróciło kandydatów dla tych fraz. Nie przeszukuje całego Instagrama.":"Wpisz temat i wybierz „Znajdź rolki”. Nie musisz znać kont twórców.";
   }
-  async function wykonaj(operacja) {
-    if (stan.zajety) return;
-    stan.zajety = true; blokady(); komunikat("");
-    try { await operacja(); } catch (blad) { komunikat(blad.message); }
-    finally { stan.zajety = false; blokady(); }
+  function render(){
+    if(!stan.dane)return;
+    const ids=new Set(stan.tab==="zapisane"?stan.dane.zapisane:stan.dane.ostatnie), w=ResearchSilnik.filtruj(stan.dane.posty.filter(p=>ids.has(p.id)),{jezyk:$("#od-jezyk").value,okres:$("#od-okres").value,prog:$("#od-prog").value,niepelne:$("#od-niepelne").checked});
+    const limit=Number($("#od-limit").value);stan.strona=Math.max(0,Math.min(stan.strona,Math.ceil(w.posty.length/limit)-1));const lista=w.posty.slice(stan.strona*limit,(stan.strona+1)*limit);
+    $("#od-ile-zapisanych").textContent=stan.dane.zapisane.length;
+    $("#od-zrodlo-status").textContent=stan.dane.zrodlo_api==="meta"?"Oficjalne API Meta: wyszukiwanie hashtagów utworzonych z fraz. Autorzy są uzupełniani z publicznych stron, historia z API dla dostępnych profili. Uwzględniamy też pasujące do tematu wcześniejsze rolki znalezionych autorów. To ograniczona pula, nie wszystkie rolki Instagrama. Język jest szacowany z opisu.":"Publiczne strony tematyczne Instagrama. Dostępność stron i kompletność wyników są ograniczone. Język jest szacowany z opisu.";
+    $("#od-podsumowanie").textContent=(stan.dane.postep.w_toku?"Weryfikacja trwa. ":"")+`${w.posty.length} wyników · ${w.niepelne} bez potwierdzenia filtrów. Odrzucone: ${w.powody.okres} poza okresem, ${w.powody.jezyk} inny język, ${w.powody.prog} poniżej mnożnika. `+(stan.dane.temat?"Temat: "+stan.dane.temat:"");
+    $("#od-karty").innerHTML=lista.length?lista.map(p=>`<article class="od-karta"><button class="od-okladka" data-id="${tekst(p.id)}" data-akcja="podglad" aria-label="Podgląd: ${tekst(p.tytul||'rolka')}">${cdn(p.miniatura)?`<img loading="lazy" referrerpolicy="no-referrer" src="${cdn(p.miniatura)}" alt="Miniatura rolki">`:'<span class="od-brak">Brak miniatury</span>'}<span class="od-play">▷ Podgląd</span></button><div class="od-info"><div class="od-mnoznik">${p.krotnosc_wyswietlen==null?'Wybicie niepotwierdzone':(p.krotnosc_przyblizone?'≈ ':'')+liczba(p.krotnosc_wyswietlen)+'× typowy wynik'}<small>${p.mediana_wyswietlen==null?'Historia: '+p.liczba_bazowych+'/5 wcześniejszych rolek':'Mediana: '+liczba(p.mediana_wyswietlen)+' · '+p.liczba_bazowych+' rolek'}</small></div><div class="od-pod">${tekst(p.username?'@'+p.username:'Autor nieznany')} · ${tekst(p.jezyk?.toUpperCase()||'język ?')}</div><h3>${tekst(p.tytul||'Bez opisu')}</h3><div class="od-metryki">${metryki(p)}</div><div class="od-pod">${data(p.data)}</div>${p.braki_filtrow.length?`<p class="od-braki">Niepotwierdzone: ${tekst(p.braki_filtrow.join(', '))}</p>`:''}<div class="od-akcje"><button class="przycisk zloty" data-id="${tekst(p.id)}" data-akcja="analiza">Szczegółowa analiza</button><button class="przycisk" data-id="${tekst(p.id)}" data-akcja="zapisz" aria-label="Zapisz lub usuń inspirację">${stan.dane.zapisane.includes(p.id)?'✓':'＋'}</button></div></div></article>`).join(""):'<div class="plansza">'+tekst(pustyStan(ids))+'</div>';
+    $("#od-karty").querySelectorAll("img").forEach(img=>img.onerror=()=>{const s=document.createElement("span");s.className="od-brak";s.textContent="Miniatura wygasła";img.replaceWith(s)});
+    $("#od-strony").innerHTML=`<span>${w.posty.length?stan.strona*limit+1:0}–${Math.min((stan.strona+1)*limit,w.posty.length)} z ${w.posty.length}</span><div><button class="przycisk" id="od-prev" ${stan.strona?'':'disabled'}>← Poprzednie</button> <button class="przycisk" id="od-next" ${(stan.strona+1)*limit>=w.posty.length?'disabled':''}>Następne →</button></div>`;
+    $("#od-prev").onclick=()=>{stan.strona--;render()};$("#od-next").onclick=()=>{stan.strona++;render()};
+    $("#od-linki").innerHTML=$("#od-frazy").value.split(/\r?\n/).filter(Boolean).slice(0,6).map(f=>`<a href="${stan.dane.zrodlo_api==="meta"?"https://www.instagram.com/explore/tags/"+encodeURIComponent(ResearchSilnik.uprosc(f).replace(/^#/,"").replace(/\s+/g,""))+"/":"https://www.instagram.com/popular/"+encodeURIComponent(f.trim().replace(/\s+/g,"-"))+"/"}" target="_blank" rel="noopener noreferrer">${tekst(f)} ↗</a>`).join(" · ");
   }
-
-  function szkielet() {
-    if (!znajdz("#research-style")) {
-      const styl = document.createElement("style");
-      styl.id = "research-style";
-      styl.textContent = `
-        #research-tresc .res-konta {display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
-        #research-tresc .res-konto {display:flex;gap:10px;align-items:flex-start;max-width:340px}
-        #research-tresc .res-konto img {width:34px;height:34px;border-radius:50%;object-fit:cover}
-        #research-tresc .res-konto .pod {overflow-wrap:anywhere}
-        #research-tresc .tabela-obszar {overflow-x:auto}
-        #research-tresc .tabela {min-width:960px;table-layout:auto}
-        #research-tresc th {text-transform:none}
-        #research-tresc th button {font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
-        #research-tresc .res-tytul {max-width:310px}
-        #research-tresc .res-szczegoly td {white-space:normal;cursor:default}
-        #research-tresc .res-panel {display:flex;gap:18px;padding:12px;align-items:flex-start}
-        #research-tresc .res-panel img {width:150px;max-height:240px;object-fit:contain}
-        #research-tresc .res-tresc {min-width:0;flex:1}
-        #research-tresc .res-opis {white-space:pre-wrap;overflow-wrap:anywhere}
-        #research-tresc textarea {display:block;width:100%;min-height:90px;margin-top:8px;font:inherit}
-        #research-tresc progress {accent-color:var(--zloto);width:200px}
-        #research-tresc .res-postep {display:flex;gap:10px;align-items:center;margin:8px 0}
-      `;
-      document.head.appendChild(styl);
-    }
-    znajdz("#research-tresc").innerHTML = `
-      <form id="res-formularz" class="filtry">
-        <input id="res-nazwa" placeholder="@nazwa konta" aria-label="Nazwa konta" maxlength="31" required>
-        <button id="res-dodaj" class="przycisk zloty">Dodaj konto</button>
-        <button type="button" id="res-pobierz" class="przycisk">Pobierz nowe dane</button>
-        <label>Próg <select id="res-prog">${[2, 2.5, 3, 4].map((prog) => `<option value="${prog}" ${prog === 3 ? "selected" : ""}>${liczba(prog)}×</option>`).join("")}</select></label>
-        <label><input type="checkbox" id="res-rolki" checked> Tylko rolki</label>
-      </form>
-      <div id="res-postep" class="res-postep" role="status"></div>
-      <div id="res-komunikat" class="komunikat" role="status"></div>
-      <div id="res-konta" class="res-konta"></div>
-      <div id="res-pusto" class="plansza" hidden><p>Dodaj 10-20 kont trenerów z Twojej niszy i sprawdź, które publikacje odstają od mediany konta.</p><button class="przycisk zloty" id="res-pierwsze">Dodaj pierwsze konto</button></div>
-      <h2>Odstające</h2>
-      <div class="filtry"><select id="res-filtr" aria-label="Filtr konta"></select><input id="res-szukaj" placeholder="Szukaj w tytule" aria-label="Szukaj w tytule"></div>
-      <div id="res-tabela" class="tabela-obszar"></div>`;
-    znajdz("#res-pierwsze").onclick = () => znajdz("#res-nazwa").focus();
-    znajdz("#res-formularz").onsubmit = (zdarzenie) => {
-      zdarzenie.preventDefault();
-      void wykonaj(async () => {
-        const wynik = await api("/konto", { username: znajdz("#res-nazwa").value });
-        znajdz("#res-nazwa").value = "";
-        await wczytaj();
-        if (wynik.blad) komunikat(wynik.blad);
-      });
-    };
-    znajdz("#res-pobierz").onclick = () => void wykonaj(async () => {
-      await api("/pobierz", {});
-      // Nawet bardzo szybkie pobranie musi odswiezyc dane po zakonczeniu.
-      stan.w_toku = true;
-      await sprawdzPostep();
-    });
-    znajdz("#res-prog").onchange = () => void wykonaj(async () => {
-      try { await api("/prog", { prog: Number(znajdz("#res-prog").value) }); await wczytaj(); }
-      finally { znajdz("#res-prog").value = String(stan.dane.ustawienia.prog); }
-    });
-    znajdz("#res-rolki").onchange = (zdarzenie) => { stan.rolki = zdarzenie.target.checked; tabela(); };
-    znajdz("#res-filtr").onchange = (zdarzenie) => { stan.konto = zdarzenie.target.value; tabela(); };
-    znajdz("#res-szukaj").oninput = (zdarzenie) => { stan.szukaj = zdarzenie.target.value.toLocaleLowerCase("pl-PL"); tabela(); };
-    znajdz("#res-konta").onclick = (zdarzenie) => {
-      const przycisk = zdarzenie.target.closest("button[data-usun]");
-      if (przycisk && confirm("Usunąć @" + przycisk.dataset.usun + " i jego posty?")) void wykonaj(async () => {
-        await api("/konto?username=" + encodeURIComponent(przycisk.dataset.usun), {}, "DELETE"); await wczytaj();
-      });
-    };
-    znajdz("#res-tabela").onclick = (zdarzenie) => {
-      const naglowek = zdarzenie.target.closest("button[data-sort]");
-      if (naglowek) {
-        stan.kierunek = stan.sort === naglowek.dataset.sort ? -stan.kierunek : -1;
-        stan.sort = naglowek.dataset.sort; tabela(); return;
+  function metryki(p){return [["Wyświetlenia",p.wyswietlenia],["Polubienia",p.polubienia],["Komentarze",p.komentarze],["Udostępnienia",p.udostepnienia]].map(([k,v])=>`<div><small>${k}</small><strong>${(k==='Wyświetlenia'?p.przyblizone:k==='Polubienia'?p.polubienia_przyblizone:k==='Komentarze'?p.komentarze_przyblizone:false)&&v!=null?'≈ ':''}${liczba(v)}</strong></div>`).join("")}
+  async function zapisz(id){const zapisana=!stan.dane.zapisane.includes(id);await api("/zapisz",{id,zapisana});stan.dane.zapisane=zapisana?[...stan.dane.zapisane,id]:stan.dane.zapisane.filter(i=>i!==id);render();if($("#od-zapisz-rolke"))$("#od-zapisz-rolke").textContent=zapisana?'✓ Zapisano inspirację':'Zapisz inspirację'}
+  function zamknij(){const v=$("#od-szczegoly video");if(v){v.pause();v.removeAttribute("src");v.load()}$("#od-szczegoly").hidden=true;$("#od-szczegoly").innerHTML="";$("#od-wyniki").hidden=stan.tab==="konta";stan.wybrany=null}
+  async function szczegoly(id,analizuj=false){
+    const p=stan.dane.posty.find(p=>p.id===id);if(!p)return;zamknij();stan.wybrany=id;$("#od-wyniki").hidden=true;$("#od-szczegoly").hidden=false;
+    $("#od-szczegoly").innerHTML=`<button id="od-wroc" class="przycisk">← Wyniki</button><div class="od-detal"><div><div class="od-odtwarzacz">${cdn(p.miniatura)?`<img src="${cdn(p.miniatura)}" alt="Miniatura rolki" referrerpolicy="no-referrer">`:'<span>Brak miniatury</span>'}</div><button class="przycisk" id="od-odtworz" ${cdn(p.film)?'':'disabled'}>▷ Odtwórz tutaj</button><p class="od-pod">Film pobierany tylko po kliknięciu. Link może wygasnąć.</p></div><div><p class="od-pod">${tekst(p.username?'@'+p.username:'Autor nieznany')} · ${data(p.data)}</p><h2>${tekst(p.tytul||'Rolka')}</h2><div class="od-metryki">${metryki(p)}</div><div class="od-akcje"><button class="przycisk zloty" id="od-analizuj">Szczegółowa analiza</button><a href="${tekst(p.permalink)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a></div><div id="od-raport" role="status"></div><details><summary>Opis i źródło</summary><p class="od-opis">${tekst(p.opis||'Brak opisu')}</p><p class="od-pod">Odczyt: ${data(p.pobrano)}. ${tekst(p.jezyk_metoda)}.</p><a target="_blank" rel="noopener noreferrer" href="${tekst(p.zrodlo)}">Publiczne źródło ↗</a></details><label>Twoja notatka<textarea id="od-notatka" maxlength="15000" rows="4"></textarea></label><div class="od-akcje"><button class="przycisk" id="od-notatka-zapisz">Zapisz notatkę</button><button class="przycisk" id="od-zapisz-rolke">${stan.dane.zapisane.includes(id)?'✓ Zapisano inspirację':'Zapisz inspirację'}</button></div><p id="od-notatka-status" role="status"></p></div></div>`;
+    $("#od-wroc").onclick=()=>{zamknij();render()};$("#od-zapisz-rolke").onclick=()=>void wykonaj(()=>zapisz(id));
+    $("#od-notatka").value=stan.notatki.get(id)??stan.dane.notatki[id]??"";$("#od-notatka").oninput=e=>{stan.notatki.set(id,e.target.value);$("#od-notatka-status").textContent="Niezapisane zmiany"};
+    $("#od-notatka-zapisz").onclick=()=>void wykonaj(async()=>{const s=$("#od-notatka").value;await api("/notatka",{id,tekst:s});stan.dane.notatki[id]=s;if(stan.wybrany===id)$("#od-notatka-status").textContent="Zapisano"});
+    $("#od-odtworz").onclick=()=>{const v=document.createElement("video");v.controls=true;v.preload="none";v.src=p.film;v.poster=p.miniatura;v.onerror=()=>komunikat("Film nie jest dostępny. Otwórz oryginał na Instagramie.");$(".od-odtwarzacz").replaceChildren(v);void v.play().catch(()=>komunikat("Kliknij odtwarzanie lub otwórz Instagram."));$("#od-odtworz").disabled=true};
+    $("#od-analizuj").onclick=()=>void wykonaj(()=>raport(id));if(analizuj)await raport(id);
+  }
+  async function raport(id){const a=await api("/analiza",{id});if(stan.wybrany!==id)return;$("#od-raport").innerHTML=`<div class="od-raport"><h3>Opis i sygnały do sprawdzenia</h3><p class="od-braki">${tekst(a.zakres)}</p><h4>Otwarcie opisu, nie hook filmu</h4><blockquote>${tekst(a.otwarcie_opisu||'Brak opisu')}</blockquote><h4>Wynik na tle twórcy</h4><p>${tekst(a.porownanie)}</p>${a.sygnaly.map(s=>`<h4>${tekst(s.etykieta)}</h4><blockquote>${tekst(s.dowod)}</blockquote><p>${tekst(s.hipoteza)}</p>`).join('')}<h4>Dopasowanie do odbiorców</h4><p>${tekst(a.profil.odbiorcy)}</p><ul>${a.pytania.map(q=>`<li>${tekst(q)}</li>`).join('')}</ul><h4>Czego jeszcze nie przeanalizowano</h4><ul>${a.brakujace.map(q=>`<li>${tekst(q)}</li>`).join('')}</ul><p class="od-pod">Lokalne reguły, bez płatnego AI. Odtworzenie filmu nie przekazuje go automatycznie do analizy.</p></div>`}
+  function opisPostepu(p){
+    if(p.anuluj&&p.w_toku)return "Zatrzymuję po bieżącym odczycie. Zachowuję znalezione rolki.";
+    if(p.w_toku&&stan.dane.zrodlo_api!=="meta")return `Szukam: ${p.fraza}. Nie pobieram filmów.`;
+    if(p.w_toku)return `Potwierdzone: ${p.potwierdzone||0} / ${p.cel||30} · pula ${p.kandydaci||0} rolek · ${p.autorzy||0} twórców. ${p.fraza}. Nie pobieram filmów.`;
+    const w=stan.dane.wyszukiwanie;if(!w?.powod)return "";
+    const wynik=`Znalezione: ${w.potwierdzone} / ${w.cel} dla filtrów ostatniego wyszukiwania. `;
+    if(w.wznow_po)return wynik+"Limit Meta. Kolejna próba o "+new Date(w.wznow_po).toLocaleTimeString("pl-PL",{hour:"2-digit",minute:"2-digit"})+" przy otwartym panelu Research. To zaplanowana próba, nie gwarantowany czas odnowienia limitu.";
+    return wynik+({cel:"Osiągnięto cel. Wybierz większą liczbę i kliknij „Znajdź rolki”, aby szukać dalej.",wyczerpano:"Sprawdzono wszystkie strony udostępnione dla tych hashtagów. Nie jest to cały Instagram.",zrodlo:"Źródło przerwało część odczytów. Zebrane wyniki zachowano.",budzet:"Zakończono partię wyszukiwania. Kliknij „Znajdź rolki”, aby kontynuować.",limit:"Limit Meta nadal obowiązuje. Zebrane wyniki zachowano. Wróć do wyszukiwania później.",blokada:"Instagram lub Meta zatrzymały odczyt. Zebrane wyniki zachowano.",zatrzymano:"Wyszukiwanie zatrzymane. Możesz kontynuować z zachowanych danych."}[w.powod]||"");
+  }
+  async function odswiez(){
+    clearTimeout(stan.zegar);
+    try{
+      stan.dane=await api();
+      if(stan.pierwszyOdczyt){
+        stan.pierwszyOdczyt=false;const w=stan.dane.wyszukiwanie;
+        if(w?.cel)$("#od-cel").value=String(w.cel);
+        for(const id of ["jezyk","okres","prog"])if(w?.filtry?.[id]!=null)$("#od-"+id).value=String(w.filtry[id]);
+        if(stan.dane.temat){$("#od-temat").value=stan.dane.temat;frazy();if(w?.frazy?.length)$("#od-frazy").value=w.frazy.join("\n")}
       }
-      if (zdarzenie.target.closest(".res-szczegoly")) return;
-      const wiersz = zdarzenie.target.closest("tr[data-post]");
-      if (wiersz) { stan.wybrany = stan.wybrany === wiersz.dataset.post ? null : wiersz.dataset.post; tabela(); }
-    };
-    znajdz("#res-tabela").onkeydown = (zdarzenie) => {
-      if (zdarzenie.target.matches("tr[data-post]") && ["Enter", " "].includes(zdarzenie.key)) {
-        zdarzenie.preventDefault(); zdarzenie.target.click();
-      }
-    };
-    znajdz("#res-tabela").oninput = (zdarzenie) => {
-      if (!zdarzenie.target.matches("textarea[data-notatka]")) return;
-      const id = zdarzenie.target.dataset.notatka;
-      let wpis = stan.notatki.get(id);
-      if (!wpis) { wpis = { tekst: "", zegar: null, kolejka: Promise.resolve(), wersja: 0, status: "" }; stan.notatki.set(id, wpis); }
-      wpis.tekst = zdarzenie.target.value; wpis.wersja++; wpis.status = "Niezapisane zmiany";
-      statusNotatki(id, wpis.status);
-      clearTimeout(wpis.zegar);
-      wpis.zegar = setTimeout(() => zapiszNotatke(id, wpis), 600);
-    };
+      if(!stan.profilBrudny){$("#od-kim").value=stan.dane.profil.kim;$("#od-odbiorcy").value=stan.dane.profil.odbiorcy;$("#od-tematy").value=stan.dane.profil.tematy}
+      const p=stan.dane.postep;
+      for(const id of ["szukaj","temat","jezyk","okres","prog","cel","frazy"])$("#od-"+id).disabled=p.w_toku;
+      $("#od-stop").hidden=(!p.w_toku&&!stan.dane.wyszukiwanie?.wznow_po)||stan.dane.zrodlo_api!=="meta";$("#od-stop").disabled=!!p.anuluj;
+      $("#od-postep").textContent=opisPostepu(p);
+      komunikat(p.bledy.length?(stan.dane.ostatnie.length?"Nie wszystkie dane były dostępne. ":"")+p.bledy.slice(0,2).map(b=>(b.fraza?b.fraza+": ":"")+b.blad).join("\n")+(p.bledy.length>2?`\nPozostałe nieudane odczyty: ${p.bledy.length-2}.`:""):"");render();
+    }finally{if(stan.dane?.postep?.w_toku||stan.dane?.wyszukiwanie?.wznow_po)stan.zegar=setTimeout(()=>void wykonaj(odswiez),stan.dane.postep.w_toku?1500:15000)}
   }
-
-  function statusNotatki(id, tekst) {
-    const pole = znajdz("#res-notatka-status");
-    if (pole && pole.dataset.id === id) pole.textContent = tekst;
-  }
-  function zapiszNotatke(id, wpis) {
-    const tekst = wpis.tekst;
-    const wersja = wpis.wersja;
-    // Kolejka dla kazdego posta zapobiega nadpisaniu nowszej notatki starszym zapisem.
-    wpis.kolejka = wpis.kolejka.then(async () => {
-      try {
-        await api("/notatka", { id, tekst });
-        if (wpis.wersja === wersja) { wpis.status = "Zapisano"; statusNotatki(id, wpis.status); }
-      } catch (blad) {
-        wpis.status = "Nie zapisano. Zmień tekst, aby ponowić zapis.";
-        statusNotatki(id, wpis.status); komunikat(blad.message);
-      }
-    });
-  }
-
-  async function wczytaj() {
-    stan.dane = await api("");
-    if (!Array.from(znajdz("#res-prog").options).some((opcja) => Number(opcja.value) === stan.dane.ustawienia.prog)) {
-      const opcja = document.createElement("option");
-      opcja.value = String(stan.dane.ustawienia.prog);
-      opcja.textContent = liczba(stan.dane.ustawienia.prog) + "×";
-      znajdz("#res-prog").appendChild(opcja);
-    }
-    znajdz("#res-prog").value = String(stan.dane.ustawienia.prog);
-    znajdz("#res-pusto").hidden = stan.dane.konta.length > 0;
-    if (!stan.dane.konta.some((konto) => konto.username === stan.konto)) stan.konto = "";
-    znajdz("#res-filtr").innerHTML = '<option value="">Wszystkie konta</option>' + stan.dane.konta.map((konto) => `<option value="${bezpiecznyTekst(konto.username)}">@${bezpiecznyTekst(konto.username)}</option>`).join("");
-    znajdz("#res-filtr").value = stan.konto;
-    znajdz("#res-konta").innerHTML = stan.dane.konta.map((konto) => `<div class="kafelek res-konto">
-      ${adres(konto.avatar) ? `<img src="${adres(konto.avatar)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}
-      <div><strong>@${bezpiecznyTekst(konto.username)}</strong><div class="pod">${liczba(konto.obserwujacy)} obserwujących · ${liczba(konto.media_count)} postów</div>
-      <div class="pod">Pobrano: ${data(konto.ostatnie_pobranie)}</div>${konto.blad ? `<div class="komunikat blad">${bezpiecznyTekst(konto.blad)}</div>` : ""}</div>
-      <button class="przycisk" data-usun="${bezpiecznyTekst(konto.username)}" aria-label="Usuń @${bezpiecznyTekst(konto.username)}">×</button></div>`).join("");
-    tabela(); blokady();
-  }
-
-  function panel(post) {
-    const wpis = stan.notatki.get(post.id);
-    const tekst = wpis ? wpis.tekst : stan.dane.notatki[post.id] || "";
-    return `<tr class="res-szczegoly"><td colspan="8"><div class="res-panel">
-      ${adres(post.miniatura) ? `<img src="${adres(post.miniatura)}" alt="Miniatura publikacji" loading="lazy" referrerpolicy="no-referrer">` : ""}
-      <div class="res-tresc"><p class="res-opis">${bezpiecznyTekst(post.opis)}</p>
-      ${adres(post.permalink) ? `<a href="${adres(post.permalink)}" target="_blank" rel="noopener noreferrer">Otwórz na Instagramie</a>` : ""}
-      <p class="pod">Mediana konta: ${liczba(post.mediana_konta)} interakcji${post.bez_polubien ? ". Polubienia ukryte, wynik uwzględnia tylko komentarze" : ""}.</p>
-      <label>Notatka<textarea maxlength="50000" data-notatka="${bezpiecznyTekst(post.id)}">${bezpiecznyTekst(tekst)}</textarea></label>
-      <div class="pod" id="res-notatka-status" data-id="${bezpiecznyTekst(post.id)}" role="status">${bezpiecznyTekst(wpis?.status || "")}</div></div></div></td></tr>`;
-  }
-  function tabela() {
-    const posty = Object.values(stan.dane.posty).flat().filter((post) => post.odstajacy && (!stan.rolki || post.typ === "rolka") &&
-      (!stan.konto || stan.konto === post.username) && post.tytul.toLocaleLowerCase("pl-PL").includes(stan.szukaj));
-    posty.sort((a, b) => {
-      const lewy = stan.sort === "sygnal" ? Number(a.swiezy) : stan.sort === "data" ? Date.parse(a.data) : a[stan.sort];
-      const prawy = stan.sort === "sygnal" ? Number(b.swiezy) : stan.sort === "data" ? Date.parse(b.data) : b[stan.sort];
-      if (lewy == null) return prawy == null ? 0 : 1;
-      if (prawy == null) return -1;
-      return (typeof lewy === "number" ? lewy - prawy : String(lewy).localeCompare(String(prawy), "pl")) * stan.kierunek;
-    });
-    const kolumny = [["data", "Data"], ["username", "Konto"], ["tytul", "Tytuł"], ["typ", "Typ"], ["polubienia", "Polubienia"], ["komentarze", "Komentarze"], ["krotnosc", "Krotność"], ["sygnal", "Sygnał"]];
-    znajdz("#res-tabela").innerHTML = `<table class="tabela"><thead><tr>${kolumny.map(([klucz, tytul]) => `<th aria-sort="${stan.sort === klucz ? stan.kierunek === 1 ? "ascending" : "descending" : "none"}"><button data-sort="${klucz}">${tytul}${stan.sort === klucz ? stan.kierunek === 1 ? " ↑" : " ↓" : ""}</button></th>`).join("")}</tr></thead><tbody>${posty.length ? posty.map((post) => `<tr tabindex="0" data-post="${bezpiecznyTekst(post.id)}" aria-expanded="${stan.wybrany === post.id}">
-      <td>${data(post.data)}</td><td>@${bezpiecznyTekst(post.username)}</td><td class="res-tytul" title="${bezpiecznyTekst(post.tytul)}">${bezpiecznyTekst(post.tytul || "Bez opisu")}</td>
-      <td>${bezpiecznyTekst(post.typ)}</td><td>${post.bez_polubien ? "ukryte" : liczba(post.polubienia)}</td><td>${liczba(post.komentarze)}</td><td>${liczba(post.krotnosc)}×</td>
-      <td><span class="sygnal dobry">Ponad próg</span> ${post.swiezy ? '<span class="sygnal">świeże</span>' : ""}</td></tr>${stan.wybrany === post.id ? panel(post) : ""}`).join("") : '<tr><td colspan="8" class="pusto">Brak publikacji ponad próg dla wybranych filtrów.</td></tr>'}</tbody></table>`;
-  }
-
-  async function sprawdzPostep() {
-    clearTimeout(stan.petla);
-    try {
-      const postep = await api("/postep");
-      const bylo = stan.w_toku;
-      stan.w_toku = postep.w_toku;
-      znajdz("#res-postep").innerHTML = postep.w_toku ? `<progress max="${Math.max(1, postep.razem)}" value="${postep.zrobione}"></progress><span class="pod">${liczba(postep.zrobione)} / ${liczba(postep.razem)} ${bezpiecznyTekst(postep.konto ? "@" + postep.konto : "")}</span>` : "";
-      blokady();
-      if (bylo && !postep.w_toku) await wczytaj();
-      if (!postep.w_toku && postep.blad) komunikat(postep.blad);
-    } catch (blad) { komunikat(blad.message); }
-    finally { stan.petla = setTimeout(sprawdzPostep, 1200); }
-  }
-  async function start() {
-    if (stan.uruchomiony) return;
-    stan.uruchomiony = true;
-    szkielet();
-    try { await wczytaj(); } catch (blad) { komunikat(blad.message); }
-    await sprawdzPostep();
-  }
-  return { start };
+  async function start(){if(stan.start)return;stan.start=true;try{if(!window.ResearchSilnik)await skrypt("research-silnik.js");szkielet();await odswiez()}catch(e){if($("#od-komunikat"))komunikat(e.message);else{stan.start=false;$("#research-tresc").textContent=e.message}}}
+  return {start};
 })();
