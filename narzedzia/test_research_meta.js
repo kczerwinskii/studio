@@ -1,6 +1,7 @@
 "use strict";
 const assert=require("node:assert/strict"),meta=require("../moduly/research-meta"),{porownaj}=require("../app/research-silnik"),{obsluzOdkrywanie}=require("../moduly/research-odkrywanie");
 (async()=>{
+ assert.equal(meta.hashtagMeta("Łapa"),"łapa","Polskie litery zostają w hashtagu wysyłanym do Mety");assert.equal(meta.hashtagMeta("trening siłowy"),"treningsiłowy");assert.equal(meta.hashtagMeta("#Muscle Growth!"),"musclegrowth");
  assert(meta.pasujeDoFraz("#MuscleGrowth and training",["muscle growth"]));assert(!meta.pasujeDoFraz("outfit",["fit"]));
  assert.equal(meta.hashtag("budowanie mięśni"),"budowaniemiesni");assert.equal(meta.hashtag("#HIPERTROFIA"),"hipertrofia");
  assert.equal(meta.kodRolki("https://www.instagram.com/reel/TestABCDE/"),"TestABCDE");assert.equal(meta.kodRolki("https://instagram.com.evil.test/reel/TestABCDE/"),null);

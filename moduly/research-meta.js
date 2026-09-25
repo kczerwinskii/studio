@@ -2,6 +2,9 @@
 // Oficjalne API: hashtagi odkrywaja materialy, Business Discovery daje historie kont.
 const {uprosc}=require("../app/research-silnik");
 const hashtag=fraza=>uprosc(fraza).replace(/^#/,"").replace(/\s+/g,"");
+// Hashtag wysylany do Mety zachowuje polskie litery: #łapa to nie #lapa (dzielnica Rio), #siłownia to nie #silownia.
+const hashtagMeta=fraza=>String(fraza||"").toLowerCase().trim().replace(/^#/,"").replace(/\s+/g,"").replace(/[^\p{L}\p{N}_]/gu,"");
+const poprawnyTag=tag=>/^[\p{L}\p{N}_]{1,100}$/u.test(tag);
 const liczba=n=>typeof n==="number"&&Number.isFinite(n)&&n>=0?n:null;
 function pasujeDoFraz(opis,frazy){
   const tekst=" "+uprosc(opis).replace(/[^a-z0-9_ ]/g," ").replace(/\s+/g," ")+" ";
@@ -33,10 +36,10 @@ function karta(p,username=null){
     zrodlo_api:"meta",metryka_wyswietlen:"meta_view_count",tryb_odkrycia:p.tryb_odkrycia||null};
 }
 async function pobierzTemat(n,fraza){
-  const tag=hashtag(fraza);if(!/^[a-z0-9_]{1,100}$/.test(tag))throw new Error("Meta: wpisz temat bez znaków specjalnych.");
+  const tag=hashtagMeta(fraza);if(!poprawnyTag(tag))throw new Error("Meta: wpisz temat bez znaków specjalnych.");
   const ust=n.ustawienia(),szukane=await graph(n,"/ig_hashtag_search",{user_id:ust.ig_id,q:tag});
   const id=szukane.data?.[0]?.id;
-  if(!/^\d+$/.test(id||""))return {posty:[],url:"https://www.instagram.com/explore/tags/"+tag+"/",zrodlo_api:"meta"};
+  if(!/^\d+$/.test(id||""))return {posty:[],url:"https://www.instagram.com/explore/tags/"+encodeURIComponent(tag)+"/",zrodlo_api:"meta"};
   const posty=new Map(),ostrzezenia=[];
   for(const tryb of ["top_media","recent_media"]){
     try {
@@ -51,11 +54,11 @@ async function pobierzTemat(n,fraza){
     } catch(e){if(e.blokada)throw e;ostrzezenia.push(tryb+": "+e.message)}
   }
   if(!posty.size&&ostrzezenia.length)throw new Error(ostrzezenia.join(" "));
-  return {posty:[...posty.values()],ostrzezenia,url:"https://www.instagram.com/explore/tags/"+tag+"/",zrodlo_api:"meta"};
+  return {posty:[...posty.values()],ostrzezenia,url:"https://www.instagram.com/explore/tags/"+encodeURIComponent(tag)+"/",zrodlo_api:"meta"};
 }
 // Jedna mala strona na raz. Przechowujemy kursory, nigdy URL z tokenem.
 async function pobierzStrone(n,fraza,poprzednia={}){
-  const tag=hashtag(fraza);if(!/^[a-z0-9_]{1,100}$/.test(tag))throw new Error("Meta: niepoprawny hashtag.");
+  const tag=hashtagMeta(fraza);if(!poprawnyTag(tag))throw new Error("Meta: niepoprawny hashtag.");
   const stan=structuredClone(poprzednia),ust=n.ustawienia();
   if(!stan.id){const d=await graph(n,"/ig_hashtag_search",{user_id:ust.ig_id,q:tag});stan.id=d.data?.[0]?.id;if(!/^\d+$/.test(stan.id||""))return {posty:[],stan:{koniec:true},koniec:true}}
   stan.top_media??={};stan.recent_media??={};
@@ -66,7 +69,7 @@ async function pobierzStrone(n,fraza,poprzednia={}){
   tor.kursory??=[];tor.koniec=!d.paging?.next||!after||tor.kursory.includes(after);
   if(!tor.koniec){tor.after=after;tor.kursory.push(after)}
   stan.nastepny=tryb==="recent_media"?"top_media":"recent_media";
-  return {posty:(d.data||[]).map(p=>karta({...p,tryb_odkrycia:tryb})).filter(Boolean),stan,koniec:!!stan.top_media.koniec&&!!stan.recent_media.koniec,url:"https://www.instagram.com/explore/tags/"+tag+"/",zrodlo_api:"meta"};
+  return {posty:(d.data||[]).map(p=>karta({...p,tryb_odkrycia:tryb})).filter(Boolean),stan,koniec:!!stan.top_media.koniec&&!!stan.recent_media.koniec,url:"https://www.instagram.com/explore/tags/"+encodeURIComponent(tag)+"/",zrodlo_api:"meta"};
 }
 async function pobierzProfil(n,username,opcje={}){
   if(!/^[A-Za-z0-9_.]{1,30}$/.test(username))throw new Error("Meta: niepoprawny profil.");
@@ -94,4 +97,4 @@ async function pobierzProfil(n,username,opcje={}){
   }
   return {posty:[...posty.values()],koniec,ostrzezenie,kursor:koniec?null:after||null,url:"https://www.instagram.com/"+username+"/reels/",zrodlo_api:"meta"};
 }
-module.exports={dostepne,hashtag,pasujeDoFraz,kodRolki,karta,pobierzTemat,pobierzStrone,pobierzProfil};
+module.exports={dostepne,hashtag,hashtagMeta,pasujeDoFraz,kodRolki,karta,pobierzTemat,pobierzStrone,pobierzProfil};

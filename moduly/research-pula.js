@@ -102,14 +102,14 @@ async function szukajPuli(n,{czytaj,zapisz,normalizuj,scalSzczegoly,szczegoly,po
     for(const fraza of frazy){
       if(postep.anuluj||przerwana)break;
       const stare=czytaj(),cache=stare.frazy[fraza];
-      const wazne=swieze(cache?.pobrano)&&cache.zrodlo_api==="meta"&&cache.wersja_meta===3;
+      const wazne=swieze(cache?.pobrano)&&cache.zrodlo_api==="meta"&&cache.wersja_meta===4;
       if(zatrzymaneFrazy.has(fraza)||wazne&&cache.koniec)continue;
       dostepne++;postep.fraza="Kolejne rolki: "+fraza;
       try{
         const w=await meta.pobierzStrone(n,fraza,wazne?cache.paginacja:{});strony++;
         const akt=czytaj(),ids=new Set(wazne?cache.ids:[]);
         for(const s of w.posty){const p=normalizuj(s,fraza,w.url);if(!p)continue;ids.add(p.id);const stary=akt.posty[p.id];akt.posty[p.id]=stary?.zrodlo_api==="meta"?{...p,...stary}:p;if(!akt.ostatnie.includes(p.id))akt.ostatnie.push(p.id)}
-        Object.defineProperty(akt.frazy,fraza,{value:{ids:[...ids],paginacja:w.stan,koniec:w.koniec,pobrano:wazne?cache.pobrano:teraz(),zrodlo_api:"meta",wersja_meta:3},enumerable:true,writable:true,configurable:true});zapisz(akt);
+        Object.defineProperty(akt.frazy,fraza,{value:{ids:[...ids],paginacja:w.stan,koniec:w.koniec,pobrano:wazne?cache.pobrano:teraz(),zrodlo_api:"meta",wersja_meta:4},enumerable:true,writable:true,configurable:true});zapisz(akt);
       }catch(e){blad(fraza,e);zatrzymaneFrazy.add(fraza)}
       postep.zrobione++;
     }
