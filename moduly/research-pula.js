@@ -27,7 +27,10 @@ function podlicz(d,filtry){
   return silnik.filtruj(d.ostatnie.map(id=>d.posty[id]).filter(Boolean).map(p=>({...p,...silnik.porownaj(p,d.historie[p.username]?.posty||[])})),{...filtry,niepelne:false}).posty.length;
 }
 async function szukajPuli(n,{czytaj,zapisz,normalizuj,scalSzczegoly,szczegoly,postep,filtry,cel,frazy}){
-  const odwiedzone=new Set(),autorzy=new Set(),zatrzymaneFrazy=new Set();
+  const odwiedzone=new Set(),autorzy=new Set(),zatrzymaneFrazy=new Set(),jaloweStrony=new Map();
+  // Fraza, ktorej 6 kolejnych stron nie dalo zadnego kandydata w wybranym jezyku i skali, jest wyczerpana
+  // (np. #hipertrofia w trybie PL to niemal wylacznie Brazylia). Nie ciagniemy setek stron na darmo.
+  const LIMIT_JALOWYCH=6;
   let strony=0,probyAutora=0,powod="wyczerpano",przerwana=false;
   // Limit pracy jednego uruchomienia, nie limit wynikow. Kontynuacja uzywa zapisanych kursorow.
   const budzetStron=200,budzetAutorow=250;
@@ -111,13 +114,15 @@ async function szukajPuli(n,{czytaj,zapisz,normalizuj,scalSzczegoly,szczegoly,po
       dostepne++;postep.fraza="Kolejne rolki: "+fraza;
       try{
         const w=await meta.pobierzStrone(n,fraza,wazne?cache.paginacja:{});strony++;
-        const akt=czytaj(),ids=new Set(wazne?cache.ids:[]);
-        for(const s of w.posty){const p=normalizuj(s,fraza,w.url);if(!p)continue;ids.add(p.id);const stary=akt.posty[p.id];akt.posty[p.id]=stary?.zrodlo_api==="meta"?{...p,...stary}:p;if(!akt.ostatnie.includes(p.id))akt.ostatnie.push(p.id)}
+        const akt=czytaj(),ids=new Set(wazne?cache.ids:[]);let uzyteczne=0;
+        for(const s of w.posty){const p=normalizuj(s,fraza,w.url);if(!p)continue;ids.add(p.id);const stary=akt.posty[p.id];akt.posty[p.id]=stary?.zrodlo_api==="meta"?{...p,...stary}:p;if(!akt.ostatnie.includes(p.id)){akt.ostatnie.push(p.id);if(wOkresie(akt.posty[p.id],filtry)&&jezykPasuje(akt.posty[p.id],filtry)&&rokuje(akt.posty[p.id],filtry))uzyteczne++}}
+        jaloweStrony.set(fraza,uzyteczne?0:(jaloweStrony.get(fraza)||0)+1);
+        if(jaloweStrony.get(fraza)>=LIMIT_JALOWYCH){zatrzymaneFrazy.add(fraza);postep.bledy.push({fraza,kod:"JALOWE",blad:"Kolejne strony tego hashtagu nie mają rolek w wybranym języku i skali. Spróbuj innego tematu."})}
         Object.defineProperty(akt.frazy,fraza,{value:{ids:[...ids],paginacja:w.stan,koniec:w.koniec,pobrano:wazne?cache.pobrano:teraz(),zrodlo_api:"meta",wersja_meta:4},enumerable:true,writable:true,configurable:true});zapisz(akt);
       }catch(e){blad(fraza,e);zatrzymaneFrazy.add(fraza)}
       postep.zrobione++;
     }
-    if(!dostepne){powod=zatrzymaneFrazy.size?"zrodlo":"wyczerpano";break}
+    if(!dostepne){powod=[...zatrzymaneFrazy].some(f=>(jaloweStrony.get(f)||0)<LIMIT_JALOWYCH)?"zrodlo":"wyczerpano";break}
   }
   if(postep.anuluj)powod="zatrzymano";
   odswiez();postep.powod=powod;

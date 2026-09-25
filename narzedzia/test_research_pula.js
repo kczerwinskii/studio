@@ -72,6 +72,18 @@ const rolka=(nr,wiek=1,views=400,opis="en")=>({id:String(nr),permalink:"https://
     assert.equal(d.wyszukiwanie.potwierdzone,1);assert.equal(d.posty.find(p=>p.id==="Target0700").liczba_bazowych,10);
     n.graph=staryGraph;
   }
+  // Jalowe strony: 6 kolejnych stron bez kandydata w jezyku i skali konczy fraze, zamiast ciagnac setki stron.
+  {
+    const staryGraph=n.graph;let stron=0;
+    n.graph=async(sc,p)=>{
+      if(sc==="/ig_hashtag_search")return {data:[{id:"4"}]};
+      if(sc.endsWith("_media")){stron++;return {data:Array.from({length:5},(_,i)=>rolka(20000+stron*10+i,1,400,"es")),paging:{cursors:{after:"J"+stron}}}}
+      throw new Error("Historia nie powinna być pobierana dla obcych rolek");
+    };
+    await api("/szukaj",{...warunki,frazy:["jalowa"],cel:30,filtry:{...warunki.filtry,jezyk:"pl"}});d=await koniec();
+    assert.equal(stron,6,"Po 6 jałowych stronach koniec");assert.equal(d.wyszukiwanie.powod,"wyczerpano");assert(d.wyszukiwanie.bledy.some(b=>b.kod==="JALOWE"));
+    n.graph=staryGraph;
+  }
   // Zatrzymanie konczy sie po biezacym odczycie i zachowuje juz zebrane dane.
   let odblokuj;n.graph=()=>new Promise(ok=>odblokuj=ok);
   await api("/szukaj",{...warunki,frazy:["nowa"],cel:30});assert((await api()).dane.postep.w_toku);

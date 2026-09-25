@@ -160,3 +160,7 @@ Kuba wpisał "łapa" i dostał 39 rolek w innym języku. Przyczyna: `hashtag()` 
 ## 2026-09-25, Claude (Fable): minimum wyświetleń
 
 Pierwsza udana próba po poprawkach ("trening", PL, 30 dni, 3×): 66 kandydatów, 2 potwierdzone (21× i 4×), tylko 6 odrzuconych za język. Kuba zauważył, że wyniki z 200 czy 5000 wyświetleń są bezwartościowe, choć formalnie "3× typowe" dla małego konta. Nowy filtr "Minimum wyświetleń" (10 tys. do 1 mln, domyślnie 50 tys., albo bez minimum) w `research-silnik.js` (`filtruj`), walidacja w `research-odkrywanie.js`, pole w panelu. W pętli (`research-pula.js`, `rokuje`) strona hashtagu nie daje wyświetleń, więc rolki z liczbą polubień poniżej 0,5% minimum nie dostają zapytania o historię autora; ukryte polubienia przechodzą. Brak licznika wyświetleń to brak danych, nie zero. Testy dopasowane, test panelu (Playwright) zaktualizowany bez uruchomienia.
+
+## 2026-09-25, Claude (Fable): jałowe strony hashtagu
+
+Próba "hipertrofia" (PL, 100 tys., 3×): 584 kandydatów, 566 odrzuconych za język, 44 zapytania, kilka minut pracy bez wyniku. Pętla ciągnęła kolejne strony tagu, na którym prawie nie ma polskich rolek. Nowa zasada w `research-pula.js`: fraza, której 6 kolejnych stron nie dało ani jednego kandydata przechodzącego język, okres i minimum wyświetleń, jest kończona z komunikatem "Kolejne strony tego hashtagu nie mają rolek w wybranym języku i skali". Powód końca to "wyczerpano", nie błąd źródła. Test w `test_research_pula.js`.
