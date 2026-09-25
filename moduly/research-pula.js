@@ -31,7 +31,7 @@ async function szukajPuli(n,{czytaj,zapisz,normalizuj,scalSzczegoly,szczegoly,po
   // Fraza, ktorej 6 kolejnych stron nie dalo zadnego kandydata w wybranym jezyku i skali, jest wyczerpana
   // (np. #hipertrofia w trybie PL to niemal wylacznie Brazylia). Nie ciagniemy setek stron na darmo.
   const LIMIT_JALOWYCH=6;
-  let strony=0,probyAutora=0,powod="wyczerpano",przerwana=false;
+  let strony=0,probyAutora=0,powod="wyczerpano",przerwana=false,oembed=true;
   // Limit pracy jednego uruchomienia, nie limit wynikow. Kontynuacja uzywa zapisanych kursorow.
   const budzetStron=200,budzetAutorow=250;
   const odswiez=()=>{const d=czytaj();const z=zapytan();postep.zapytania=z!=null&&zapytaniaStart!=null?z-zapytaniaStart:null;postep.potwierdzone=podlicz(d,filtry);postep.autorzy=autorzy.size;postep.kandydaci=d.ostatnie.length;postep.strony=strony;d.zakres_weryfikacji={kandydaci:d.ostatnie.length,sprawdzane:odwiedzone.size,autorzy:autorzy.size,strony,cel,potwierdzone:postep.potwierdzone};zapisz(d);return postep.potwierdzone>=cel};
@@ -94,8 +94,19 @@ async function szukajPuli(n,{czytaj,zapisz,normalizuj,scalSzczegoly,szczegoly,po
       if(swieze(p.sprawdzono_autora)&&p.wersja_odczytu_autora===2)continue;
       postep.fraza="Sprawdzam autora rolki "+p.id;probyAutora++;
       try{
-        const w=await szczegoly(p.id),akt=czytaj();akt.posty[p.id]=scalSzczegoly(akt.posty[p.id],w);zapisz(akt);
-        if(akt.posty[p.id].username)await autor(akt.posty[p.id].username);
+        let znaleziony=null;
+        if(oembed){
+          const o=await meta.autorZOembed(n,p.id);
+          if(o.niedostepny){oembed=false;postep.bledy.push({fraza:"",kod:"OEMBED",blad:"Szybki odczyt autora (oEmbed) jest niedostępny. Dodaj funkcję oEmbed Read w aplikacji Meta. Używam wolniejszego odczytu strony."})}
+          else znaleziony=o.username;
+        }
+        if(znaleziony){
+          const akt=czytaj();akt.posty[p.id]={...akt.posty[p.id],username:akt.posty[p.id].username||znaleziony,sprawdzono_autora:teraz(),wersja_odczytu_autora:2,zrodlo_autora:"oembed"};zapisz(akt);
+          await autor(akt.posty[p.id].username);
+        }else{
+          const w=await szczegoly(p.id),akt=czytaj();akt.posty[p.id]=scalSzczegoly(akt.posty[p.id],w);zapisz(akt);
+          if(akt.posty[p.id].username)await autor(akt.posty[p.id].username);
+        }
       }catch(e){
         blad(p.id,{message:"Nie udało się potwierdzić autora rolki.",blokada:e.blokada});
         if(!e.blokada){const akt=czytaj();akt.posty[p.id].sprawdzono_autora=teraz();akt.posty[p.id].wersja_odczytu_autora=2;zapisz(akt)}

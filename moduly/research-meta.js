@@ -71,6 +71,23 @@ async function pobierzStrone(n,fraza,poprzednia={}){
   if(!tor.koniec){tor.after=after;tor.kursory.push(after)}
   return {posty:(d.data||[]).map(p=>karta({...p,tryb_odkrycia:tryb})).filter(Boolean),stan,koniec:!!stan.top_media.koniec&&!!stan.recent_media.koniec,url:"https://www.instagram.com/explore/tags/"+encodeURIComponent(tag)+"/",zrodlo_api:"meta"};
 }
+// Autor rolki przez oficjalny oEmbed (jedno szybkie zapytanie) zamiast ukrytego okna z pelna strona (10-20 s).
+// Wymaga funkcji "oEmbed Read" w aplikacji Meta. Brak dostepu (kod 10/100/200) zwraca {niedostepny:true},
+// pula przechodzi wtedy na odczyt strony i nie ponawia oEmbed w tej partii.
+async function autorZOembed(n,kod){
+  if(!/^[A-Za-z0-9_-]{5,40}$/.test(kod))return {username:null};
+  sprawdzBudzet(n);
+  try{
+    const d=await n.graph("/instagram_oembed",{url:"https://www.instagram.com/reel/"+kod+"/",fields:"author_name"},n.token());
+    if(d?.error)throw Object.assign(new Error("Meta"),{kod:d.error.code});
+    const nazwa=String(d?.author_name||"").trim();
+    return {username:/^[A-Za-z0-9_.]{1,30}$/.test(nazwa)?nazwa:null};
+  }catch(e){
+    const kod=Number(e.kod||e.code);
+    if([10,100,200,3].includes(kod))return {username:null,niedostepny:true};
+    throw bladMeta(e);
+  }
+}
 async function pobierzProfil(n,username,opcje={}){
   if(!/^[A-Za-z0-9_.]{1,30}$/.test(username))throw new Error("Meta: niepoprawny profil.");
   const posty=new Map(),kursory=new Set();let after=opcje.after||undefined,koniec=false,ostrzezenie=null;
@@ -97,4 +114,4 @@ async function pobierzProfil(n,username,opcje={}){
   }
   return {posty:[...posty.values()],koniec,ostrzezenie,kursor:koniec?null:after||null,url:"https://www.instagram.com/"+username+"/reels/",zrodlo_api:"meta"};
 }
-module.exports={dostepne,hashtag,hashtagMeta,pasujeDoFraz,kodRolki,karta,pobierzTemat,pobierzStrone,pobierzProfil};
+module.exports={dostepne,hashtag,hashtagMeta,autorZOembed,pasujeDoFraz,kodRolki,karta,pobierzTemat,pobierzStrone,pobierzProfil};

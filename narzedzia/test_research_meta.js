@@ -42,6 +42,7 @@ const assert=require("node:assert/strict"),meta=require("../moduly/research-meta
  graph:async(sc,params)=>{
   if(blad)throw Object.assign(new Error("niewyswietlany sekret"),{kod:10});
   if(sc==="/ig_hashtag_search"){zapytania++;return {data:[{id:"999"}]}}
+  if(sc==="/instagram_oembed")return {author_name:"trener"};
   if(sc.endsWith("_media"))return {data:[biezacy,{id:"2",permalink:"https://www.instagram.com/p/PhotoABC/",media_type:"IMAGE"}]};
   historiaWywolania++;return {business_discovery:{media:{data:[{...biezacy,view_count:50000},{id:"200",permalink:"https://www.instagram.com/reel/FoundOlder/",timestamp:data(2),caption:"Your muscle growth and training workout #hipertrofia",view_count:100000,like_count:1000,comments_count:25},...Array.from({length:10},(_,i)=>({id:String(i+10),permalink:"https://www.instagram.com/reel/MetaOld"+i+"/",timestamp:data(i+2),view_count:10000,like_count:100,comments_count:10}))]}}};
  },pobierzSzczegoly:async()=>({username:"trener",data:data(400),polubienia:1000,komentarze:99,polubienia_surowe:"1K",miniatura:"https://scontent.cdninstagram.com/test.jpg"})};

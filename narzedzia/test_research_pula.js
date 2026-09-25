@@ -14,17 +14,19 @@ const rolka=(nr,wiek=1,views=400,opis="en")=>({id:String(nr),permalink:"https://
   const czesc=await meta.pobierzProfil({token:()=>"test",ustawienia:()=>({ig_id:"1"}),graph:async()=>{
     if(proby++)throw Object.assign(new Error("prywatna tresc"),{kod:4});return {business_discovery:{media:{data:[rolka(3)],paging:{cursors:{after:"DALSZA"}}}}};
   }},"trener",{strony:5});assert.equal(czesc.posty.length,1);assert(czesc.ostrzezenie.blokada);assert(!JSON.stringify(czesc).includes("prywatna"));
-  const pamiec=new Map(),zapytania=[],profile=[];let tryb="en";
-  const n={sciezki:{dane:"test-pula"},token:()=>"test",ustawienia:()=>({ig_id:"1"}),czytajJson:(p,d)=>structuredClone(pamiec.get(p)??d),zapiszJson:(p,d)=>pamiec.set(p,structuredClone(d)),czytajCialo:async r=>r.cialo,odpowiedzJson:(r,k,d)=>{r.kod=k;r.dane=structuredClone(d)},pobierzSzczegoly:async id=>({username:"autor"+Number(id.slice(6))}),graph:async(sc,p)=>{
+  const pamiec=new Map(),zapytania=[],profile=[];let tryb="en",oembedDostepny=true,domOdczyty=0,oembedOdczyty=0;
+  const n={sciezki:{dane:"test-pula"},token:()=>"test",ustawienia:()=>({ig_id:"1"}),czytajJson:(p,d)=>structuredClone(pamiec.get(p)??d),zapiszJson:(p,d)=>pamiec.set(p,structuredClone(d)),czytajCialo:async r=>r.cialo,odpowiedzJson:(r,k,d)=>{r.kod=k;r.dane=structuredClone(d)},pobierzSzczegoly:async id=>{domOdczyty++;return {username:"autor"+Number(id.slice(6))}},graph:async(sc,p)=>{
     if(sc==="/ig_hashtag_search")return {data:[{id:"2"}]};
+    if(sc==="/instagram_oembed"){oembedOdczyty++;if(!oembedDostepny)throw Object.assign(new Error("(#10) oEmbed Read"),{kod:10});return {author_name:"autor"+Number(p.url.match(/Target(\d+)/)[1])}}
     if(sc.endsWith("_media")){
-      const strona=Number(p.after||0);zapytania.push(sc+":"+strona);
+      const strona=Number(p.after||0);if(tryb==="en")zapytania.push(sc+":"+strona);
       // Tryb "obce": rolki bez rozpoznawalnego opisu; autorzy 900+ pisza po hiszpansku, 800+ po polsku.
+      if(tryb==="nowe")return {data:Array.from({length:5},(_,i)=>rolka(5000+i))};
       if(tryb==="obce")return {data:[...Array.from({length:5},(_,i)=>rolka(900+i,1,400,"brak")),...Array.from({length:5},(_,i)=>rolka(800+i,1,400,"brak"))]};
       return {data:Array.from({length:10},(_,i)=>rolka(strona*10+i)),...(strona<6?{paging:{next:"nie-uzywamy-url-z-tokenem",cursors:{after:String(strona+1)}}}:{})};
     }
     const nr=Number(p.fields.match(/username\(autor(\d+)\)/)[1]);profile.push(nr);
-    const jezyk=nr>=900?"es":nr>=800?"pl":"en";
+    const jezyk=nr>=900&&nr<1000?"es":nr>=800&&nr<900?"pl":"en";
     return {business_discovery:{media:{data:[rolka(nr,1,400,nr>=800?"brak":"en"),...Array.from({length:9},(_,i)=>rolka(10000+nr*10+i,i+2,100,jezyk))]}}};
   }};
   async function api(trasa="",cialo){const r={};await obsluzOdkrywanie({method:cialo?"POST":"GET",cialo},r,new URL("http://localhost/api/research/odkrywanie"+trasa),n);return r}
@@ -35,6 +37,11 @@ const rolka=(nr,wiek=1,views=400,opis="en")=>({id:String(nr),permalink:"https://
   assert.equal((await api("/szukaj",{...warunki,cel:3})).kod,400);
   await api("/szukaj",{...warunki,cel:30});let d=await koniec();
   assert.equal(d.wyszukiwanie.powod,"cel");assert.equal(d.wyszukiwanie.potwierdzone,30);assert.equal(profile.length,30);
+  assert.equal(domOdczyty,0,"Autor z oEmbed, bez ukrytego okna");assert.equal(oembedOdczyty,30);
+  // Bez oEmbed: jedna proba, komunikat, potem odczyt strony dla kazdej rolki.
+  oembedDostepny=false;oembedOdczyty=0;tryb="nowe";await api("/szukaj",{...warunki,frazy:["bezoembed"],cel:30});d=await koniec();tryb="en";
+  assert.equal(oembedOdczyty,1,"oEmbed próbowany raz na partię");assert(domOdczyty>0,"Odczyt strony jako zapas");assert(d.wyszukiwanie.bledy.some(b=>b.kod==="OEMBED"));
+  oembedDostepny=true;domOdczyty=0;
   const pierwsze=[...zapytania];await api("/szukaj",{...warunki,cel:60});d=await koniec();
   assert.equal(d.wyszukiwanie.potwierdzone,60);assert.equal(profile.length,60,"Nie odczytujemy ponownie świeżych historii");assert.deepEqual(zapytania.slice(0,pierwsze.length),pierwsze);
   assert.equal(new Set(zapytania).size,zapytania.length,"Wznawiamy od kursora, nie od pierwszej strony");
@@ -58,6 +65,7 @@ const rolka=(nr,wiek=1,views=400,opis="en")=>({id:String(nr),permalink:"https://
     const staryGraph=n.graph;let faza=1;const zapytaniaHistorii=[];
     n.graph=async(sc,p)=>{
       if(sc==="/ig_hashtag_search")return {data:[{id:"3"}]};
+      if(sc==="/instagram_oembed")return {author_name:"autor700"};
       if(sc.endsWith("_media"))return {data:[rolka(700,1,400,"en")]};
       const after=(p.fields.match(/\.after\(([^)]+)\)/)||[])[1]||null;zapytaniaHistorii.push(after);
       if(faza===1){if(after)throw Object.assign(new Error("limit"),{kod:4});return {business_discovery:{media:{data:[rolka(700,1,400,"en"),rolka(17001,2,100,"en"),rolka(17002,3,100,"en")],paging:{cursors:{after:"KURSOR700"}}}}}}
@@ -77,6 +85,7 @@ const rolka=(nr,wiek=1,views=400,opis="en")=>({id:String(nr),permalink:"https://
     const staryGraph=n.graph;let stron=0;
     n.graph=async(sc,p)=>{
       if(sc==="/ig_hashtag_search")return {data:[{id:"4"}]};
+      if(sc==="/instagram_oembed")throw new Error("oEmbed nie powinien być wołany dla obcych rolek");
       if(sc.endsWith("_media")){stron++;return {data:Array.from({length:5},(_,i)=>rolka(20000+stron*10+i,1,400,"es")),paging:{next:"nie-uzywamy",cursors:{after:"J"+stron}}}}
       throw new Error("Historia nie powinna być pobierana dla obcych rolek");
     };
