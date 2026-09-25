@@ -192,8 +192,8 @@ async function obsluzOdkrywanie(req,res,url,n) {
     if(trasa==="/szukaj") {
       if(postep.w_toku)return wyslij(409,{blad:"Wyszukiwanie już trwa."});
       if(typeof c?.temat!=="string"||!c.temat.trim()||c.temat.length>100||!Array.isArray(c.frazy)||!c.frazy.length||c.frazy.length>6||c.frazy.some(f=>typeof f!=="string"||!f.trim()||f.length>100||/[\u0000-\u001f]/.test(f)))return wyslij(400,{blad:"Podaj temat i od 1 do 6 fraz, do 100 znaków każda."});
-      const cel=Number(c.cel??30),filtry={jezyk:c.filtry?.jezyk??"both",okres:Number(c.filtry?.okres??30),prog:Number(c.filtry?.prog??3)};
-      if(![30,60,100].includes(cel)||!["both","pl","en"].includes(filtry.jezyk)||![0,7,30].includes(filtry.okres)||![0,3,4,5].includes(filtry.prog))return wyslij(400,{blad:"Wybierz cel 30, 60 lub 100 i dostępne filtry."});
+      const cel=Number(c.cel??30),filtry={jezyk:c.filtry?.jezyk??"pl",okres:Number(c.filtry?.okres??30),prog:Number(c.filtry?.prog??3)};
+      if(![30,60,100].includes(cel)||!["pl","en"].includes(filtry.jezyk)||![0,7,30].includes(filtry.okres)||![0,3,4,5].includes(filtry.prog))return wyslij(400,{blad:"Wybierz cel 30, 60 lub 100 i dostępne filtry."});
       const dane=wczytaj(n);dane.temat=c.temat.trim();dane.ostatnie=[];dane.zakres_weryfikacji=null;
       dane.wyszukiwanie={temat:dane.temat,frazy:[...new Set(c.frazy.map(f=>f.trim()))],cel,filtry,stan:"w_toku",rozpoczeto:new Date().toISOString(),bledy:[]};
       n.zapiszJson(plik(n),dane);

@@ -22,7 +22,8 @@ const assert=require("node:assert/strict"),meta=require("../moduly/research-meta
   if(sc.endsWith("_media"))return {data:[biezacy,{id:"2",permalink:"https://www.instagram.com/p/PhotoABC/",media_type:"IMAGE"}]};
   historiaWywolania++;return {business_discovery:{media:{data:[{...biezacy,view_count:50000},{id:"200",permalink:"https://www.instagram.com/reel/FoundOlder/",timestamp:data(2),caption:"Your muscle growth and training workout #hipertrofia",view_count:100000,like_count:1000,comments_count:25},...Array.from({length:6},(_,i)=>({id:String(i+10),permalink:"https://www.instagram.com/reel/MetaOld"+i+"/",timestamp:data(i+2),view_count:10000,like_count:100,comments_count:10}))]}}};
  },pobierzSzczegoly:async()=>({username:"trener",data:data(400),polubienia:1000,komentarze:99,polubienia_surowe:"1K",miniatura:"https://scontent.cdninstagram.com/test.jpg"})};
- async function api(cialo){const r={};await obsluzOdkrywanie({method:cialo?"POST":"GET",cialo},r,new URL("http://localhost/api/research/odkrywanie"+(cialo?"/szukaj":"")),n);return r}
+ // Angielskie atrapy opisow: filtr jezyka domyslnie EN (interfejs ma tylko PL albo EN).
+ async function api(cialo){const r={};await obsluzOdkrywanie({method:cialo?"POST":"GET",cialo:cialo&&{filtry:{jezyk:"en",okres:30,prog:3},...cialo}},r,new URL("http://localhost/api/research/odkrywanie"+(cialo?"/szukaj":"")),n);return r}
  async function koniec(){for(let i=0;i<80;i++){const d=(await api()).dane;if(!d.postep.w_toku)return d;await new Promise(r=>setTimeout(r,1))}throw Error("Wyszukiwanie nie zakończyło się")}
  assert.equal((await api({temat:"hipertrofia",frazy:["hipertrofia"]})).kod,202);let d=await koniec();
  assert.equal(d.zrodlo_api,"meta");assert.equal(d.ostatnie.length,2,"Rolka z hashtagu i pasujący starszy hit z historii");assert(d.ostatnie.includes("FoundOlder"));assert.equal(d.posty.find(p=>p.id==="FoundOlder").krotnosc_wyswietlen,10);

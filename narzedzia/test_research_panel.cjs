@@ -50,7 +50,7 @@ const {chromium}=require("playwright"), fs=require("fs"), path=require("path"), 
   await page.locator('#od-temat').fill('fitness');await page.locator('#od-temat').press('Enter');
   await page.waitForFunction(()=>document.querySelector('#od-karty').textContent.includes('Nie udało się pobrać kandydatów'));
   assert.equal(wyslane.at(-1).temat,'fitness');assert(wyslane.at(-1).frazy.includes('workout'));
-  assert.equal(wyslane.at(-1).cel,30);assert.deepEqual(wyslane.at(-1).filtry,{jezyk:'both',okres:30,prog:3});
+  assert.equal(wyslane.at(-1).cel,30);assert.deepEqual(wyslane.at(-1).filtry,{jezyk:'pl',okres:30,prog:3});
   assert(!wyslane.at(-1).frazy.includes('nieznany temat xyz'));
   assert.doesNotMatch(await page.locator('#od-karty').innerText(),/Wpisz temat/);
   await page.reload();await page.evaluate(()=>Research.start());assert.equal(await page.locator('#od-temat').inputValue(),'fitness');

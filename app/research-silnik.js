@@ -12,7 +12,7 @@
     { klucze: ["barki", "shoulders"], pl: ["trening barków"], en: ["shoulder hypertrophy", "shoulder workout"] },
   ];
   function uprosc(tekst) { return String(tekst || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ł/g, "l").replace(/\s+/g," ").trim(); }
-  function rozszerz(temat, jezyk = "both") {
+  function rozszerz(temat, jezyk = "pl") {
     const tekst = String(temat || "").trim().slice(0, 100), klucz = uprosc(tekst);
     const grupa = slownik.find(g => g.klucze.some(k => uprosc(k) === klucz)) || slownik.find(g => [...g.pl,...g.en].some(k=>uprosc(k)===klucz));
     if (!grupa) return { frazy: tekst ? [tekst] : [], przetlumaczone: false };
