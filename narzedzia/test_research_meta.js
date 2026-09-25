@@ -16,6 +16,12 @@ const assert=require("node:assert/strict"),meta=require("../moduly/research-meta
  const teraz=Date.now(),data=d=>new Date(teraz-d*86400000).toISOString();
  const biezacy={id:"100",permalink:"https://www.instagram.com/reel/MetaNow1/",timestamp:data(1),caption:"Your muscle growth and training: the workout for you",like_count:1234,comments_count:0};
  let historiaWywolania=0,zapytania=0,blad=false;
+ // Kolejnosc list hashtagu: najpierw popularne (ranking Instagrama), najnowsze dopiero po wyczerpaniu popularnych.
+ {
+  const listy=[];const nl={token:()=>"t",ustawienia:()=>({ig_id:"1"}),graph:async(sc,p)=>{if(sc==="/ig_hashtag_search")return {data:[{id:"7"}]};listy.push(sc.split("/").pop());return {data:[],...(listy.length<3?{paging:{next:"x",cursors:{after:"A"+listy.length}}}:{})}}};
+  let s={};for(let i=0;i<4;i++){const w=await meta.pobierzStrone(nl,"trening",s);s=w.stan;if(w.koniec)break}
+  assert.deepEqual(listy,["top_media","top_media","top_media","recent_media"],"Popularne do końca, potem najnowsze");
+ }
  // Budzet: jedna strona wystarcza, gdy ma minimum 8 rolek; druga tylko przy mniejszej bazie; kursor wraca przy przerwaniu.
  {
   const {pobierzProfil}=meta;

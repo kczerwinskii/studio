@@ -164,3 +164,11 @@ Pierwsza udana próba po poprawkach ("trening", PL, 30 dni, 3×): 66 kandydatów
 ## 2026-09-25, Claude (Fable): jałowe strony hashtagu
 
 Próba "hipertrofia" (PL, 100 tys., 3×): 584 kandydatów, 566 odrzuconych za język, 44 zapytania, kilka minut pracy bez wyniku. Pętla ciągnęła kolejne strony tagu, na którym prawie nie ma polskich rolek. Nowa zasada w `research-pula.js`: fraza, której 6 kolejnych stron nie dało ani jednego kandydata przechodzącego język, okres i minimum wyświetleń, jest kończona z komunikatem "Kolejne strony tego hashtagu nie mają rolek w wybranym języku i skali". Powód końca to "wyczerpano", nie błąd źródła. Test w `test_research_pula.js`.
+
+## 2026-09-25, Claude (Fable): popularne najpierw, kolejka po polubieniach, polskie tagi
+
+Trzy zmiany uzgodnione z Kubą po próbie "hipertrofia":
+1. `research-meta.js`: strony hashtagu idą najpierw z listy `top_media` (ranking Instagrama, to samo co widać w wyszukiwarce aplikacji), `recent_media` dopiero po wyczerpaniu popularnych. Wcześniej zaczynało od najnowszych.
+2. `research-pula.js`: kolejka sprawdzania autorów sortowana najpierw po polubieniach, potem po rozpoznanym języku. Polubienia to jedyny sygnał skali dostępny przed zapytaniem do Mety; próg, krotność i kolejność wyników liczą się wyłącznie z wyświetleń.
+3. `research-silnik.js` (`rozszerz`): w trybie "Polski" do maksymalnie dwóch fraz tematu dokładane są cztery tagi używane niemal wyłącznie przez polskich twórców (siłownia, trening siłowy, fitness polska, budowanie masy), łącznie do 6 fraz. Powód: "hipertrofia" jest wspólne z portugalskim i hiszpańskim, a #hipertrofia to w praktyce Brazylia. W trybie "Angielski" bez zmian. Frazy są widoczne i edytowalne w panelu, komunikat pod polem to wyjaśnia.
+Testy: kolejność list w `test_research_meta.js`, rozszerzenia w `test_research_odkrywanie.js`. Wszystkie zestawy Node przechodzą.

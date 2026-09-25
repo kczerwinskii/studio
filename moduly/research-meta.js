@@ -62,13 +62,13 @@ async function pobierzStrone(n,fraza,poprzednia={}){
   const stan=structuredClone(poprzednia),ust=n.ustawienia();
   if(!stan.id){const d=await graph(n,"/ig_hashtag_search",{user_id:ust.ig_id,q:tag});stan.id=d.data?.[0]?.id;if(!/^\d+$/.test(stan.id||""))return {posty:[],stan:{koniec:true},koniec:true}}
   stan.top_media??={};stan.recent_media??={};
-  const tryb=[stan.nastepny||"recent_media",stan.nastepny==="top_media"?"recent_media":"top_media"].find(t=>!stan[t].koniec);
+  // Najpierw lista popularnych (ranking Instagrama, jak w aplikacji), najnowsze dopiero gdy popularne sie skoncza.
+  const tryb=["top_media","recent_media"].find(t=>!stan[t].koniec);
   if(!tryb)return {posty:[],stan,koniec:true};
   const tor=stan[tryb],d=await graph(n,"/"+stan.id+"/"+tryb,{user_id:ust.ig_id,fields:"id,caption,media_type,permalink,timestamp,like_count,comments_count",limit:25,...(tor.after?{after:tor.after}:{})});
   const after=d.paging?.cursors?.after;
   tor.kursory??=[];tor.koniec=!d.paging?.next||!after||tor.kursory.includes(after);
   if(!tor.koniec){tor.after=after;tor.kursory.push(after)}
-  stan.nastepny=tryb==="recent_media"?"top_media":"recent_media";
   return {posty:(d.data||[]).map(p=>karta({...p,tryb_odkrycia:tryb})).filter(Boolean),stan,koniec:!!stan.top_media.koniec&&!!stan.recent_media.koniec,url:"https://www.instagram.com/explore/tags/"+encodeURIComponent(tag)+"/",zrodlo_api:"meta"};
 }
 async function pobierzProfil(n,username,opcje={}){

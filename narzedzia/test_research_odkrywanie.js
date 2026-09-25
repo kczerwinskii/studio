@@ -6,8 +6,8 @@ const {normalizuj,analiza,obsluzOdkrywanie}=require("../moduly/research-odkrywan
 async function test(){
  assert.deepEqual(rozszerz("hipertrofia","en").frazy,["hypertrophy","muscle growth"]);
  assert.deepEqual(rozszerz("budowanie sylwetki","en").frazy,["muscle growth","hypertrophy","body recomposition"]);
- assert.equal(rozszerz("budowanie sylwetki","pl").frazy.length,3);
- assert.deepEqual(rozszerz("  FITNESS  ","pl").frazy,["fitness","trening siłowy"]);
+ assert.deepEqual(rozszerz("budowanie sylwetki","pl").frazy,["budowanie sylwetki","budowanie mięśni","siłownia","trening siłowy","fitness polska","budowanie masy"],"PL: 2 frazy tematu + 4 polskie tagi, maksymalnie 6");
+ assert.deepEqual(rozszerz("  FITNESS  ","pl").frazy,["fitness","trening siłowy","siłownia","fitness polska","budowanie masy"]);assert.deepEqual(rozszerz("fitness","en").frazy,["workout","strength training","muscle growth"],"EN bez polskich tagów");
  assert(rozszerz("budowanie    sylwetki").przetlumaczone);
  assert.equal(jezykOpisu("カッコイイ体を作る時短トレーニング初心者におすすめです"),"inne");
  assert.notEqual(jezykOpisu("हर Workout में बस Weight बढ़ाने के पीछे मत भागो। Muscle Growth के लिए सिर्फ Heavy Weight नहीं #workout #training #muscle #growth #your"),"en");
@@ -25,7 +25,7 @@ async function test(){
  assert.equal(jezykAutora([{jezyk:"pl"},{jezyk:"en"},{jezyk:"pl"},{jezyk:"en"}]),null);
  assert.equal(jezykAutora([{jezyk:"pl"},{jezyk:"pl"},{jezyk:"pl",jezyk_zrodlo:"autor"}]),null);
  assert.equal(jezykAutora([{jezyk:"en"},{jezyk:"en"},{jezyk:"en"},{jezyk:"pl"}]),"en");
- assert.deepEqual(rozszerz("nowy temat","pl"),{frazy:["nowy temat"],przetlumaczone:false});
+ assert.deepEqual(rozszerz("nowy temat","pl").frazy,["nowy temat","siłownia","trening siłowy","fitness polska","budowanie masy"]);assert.equal(rozszerz("nowy temat","pl").przetlumaczone,false);assert.deepEqual(rozszerz("nowy temat","en"),{frazy:["nowy temat"],przetlumaczone:false,polskie_tagi:false});assert.deepEqual(rozszerz("","pl").frazy,[]);
  assert.equal(licznik("1,2 mln"),1200000);assert.equal(licznik("753 tys."),753000);assert.equal(licznik("1,234"),1234);assert.equal(licznik(null),null);assert.equal(licznik("polubienia 200"),null);
  assert.equal(adresCDN("https://fbcdn.net.evil.test/v.mp4"),"");assert.equal(adresCDN("http://scontent.cdninstagram.com/a"),"");
  assert.equal(jezykOpisu("Your muscle growth and training: the workout for you"),"en");assert.equal(jezykOpisu("#fitness"),null);

@@ -9,7 +9,7 @@ window.Research = (() => {
   async function wykonaj(f){try{await f()}catch(e){komunikat(e.message)}}
   function skrypt(src){return new Promise((ok,blad)=>{const s=document.createElement("script");s.src=src;s.onload=ok;s.onerror=()=>blad(new Error("Nie udało się załadować panelu."));document.head.appendChild(s)})}
   function cdn(s){try{const u=new URL(s);return u.protocol==="https:"&&/(^|\.)(cdninstagram\.com|fbcdn\.net)$/.test(u.hostname)?tekst(u.href):""}catch{return ""}}
-  function frazy(){stan.tematFraz=$("#od-temat").value.trim();const w=ResearchSilnik.rozszerz($("#od-temat").value,$("#od-jezyk").value);$("#od-frazy").value=w.frazy.join("\n");$("#od-frazy-status").textContent=w.przetlumaczone?"Frazy: "+w.frazy.join(" · ")+". Możesz je edytować powyżej.":"Szukam dokładnie wpisanej frazy. Brak automatycznych rozszerzeń PL/EN dla tego tematu."}
+  function frazy(){stan.tematFraz=$("#od-temat").value.trim();const w=ResearchSilnik.rozszerz($("#od-temat").value,$("#od-jezyk").value);$("#od-frazy").value=w.frazy.join("\n");$("#od-frazy-status").textContent=(w.przetlumaczone?"Frazy: "+w.frazy.join(" · ")+". ":"Szukam dokładnie wpisanej frazy"+(w.polskie_tagi?" i polskich tagów: "+w.frazy.slice(1).join(" · ")+". ":". Brak automatycznych rozszerzeń PL/EN dla tego tematu. "))+(w.polskie_tagi?"Polskie tagi dają polską pulę, bo #hipertrofia to głównie Brazylia. ":"")+"Możesz je edytować powyżej."}
   function szkielet(){
     const styl=document.createElement("link");styl.rel="stylesheet";styl.href="research.css";document.head.appendChild(styl);
     $("#research-tresc").innerHTML=`<div id="odkrywanie">

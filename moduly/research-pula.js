@@ -80,12 +80,12 @@ async function szukajPuli(n,{czytaj,zapisz,normalizuj,scalSzczegoly,szczegoly,po
   // Najpierw rozwijamy znane, powiazane z tematem historie; nie trzeba ponownie czytac stron rolek.
   if(Date.parse(d.meta_limit_do)>Date.now()){postep.powod="limit";return {powod:"limit",cel,filtry,potwierdzone:postep.potwierdzone,kandydaci:postep.kandydaci,autorzy:0,strony:0}}
   const aktualne=czytaj();
-  const znani=[...new Set(aktualne.ostatnie.map(id=>aktualne.posty[id]).filter(p=>p?.username&&wOkresie(p,filtry)&&jezykPasuje(p,filtry)&&rokuje(p,filtry)).sort((a,b)=>Number(!!b.jezyk)-Number(!!a.jezyk)||(b.polubienia??-1)-(a.polubienia??-1)).map(p=>p.username))];
+  const znani=[...new Set(aktualne.ostatnie.map(id=>aktualne.posty[id]).filter(p=>p?.username&&wOkresie(p,filtry)&&jezykPasuje(p,filtry)&&rokuje(p,filtry)).sort((a,b)=>(b.polubienia??-1)-(a.polubienia??-1)||Number(!!b.jezyk)-Number(!!a.jezyk)).map(p=>p.username))];
   for(const nazwa of znani){if(postep.anuluj||przerwana||postep.potwierdzone>=cel)break;await autor(nazwa)}
   while(!postep.anuluj&&!przerwana){
     if(odswiez()){powod="cel";break}
     d=czytaj();
-    const nastepne=d.ostatnie.map(id=>d.posty[id]).filter(p=>p&&!odwiedzone.has(p.id)&&wOkresie(p,filtry)&&jezykPasuje(p,filtry)&&rokuje(p,filtry)&&d.historie[p.username]?.jezyk_autora!=="inne").sort((a,b)=>Number(!!b.jezyk)-Number(!!a.jezyk)||(b.polubienia??-1)-(a.polubienia??-1));
+    const nastepne=d.ostatnie.map(id=>d.posty[id]).filter(p=>p&&!odwiedzone.has(p.id)&&wOkresie(p,filtry)&&jezykPasuje(p,filtry)&&rokuje(p,filtry)&&d.historie[p.username]?.jezyk_autora!=="inne").sort((a,b)=>(b.polubienia??-1)-(a.polubienia??-1)||Number(!!b.jezyk)-Number(!!a.jezyk));
     for(const p of nastepne){
       if(postep.anuluj||przerwana||postep.potwierdzone>=cel)break;
       if(probyAutora>=budzetAutorow){powod="budzet";break}

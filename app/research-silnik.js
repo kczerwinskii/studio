@@ -12,11 +12,15 @@
     { klucze: ["barki", "shoulders"], pl: ["trening barków"], en: ["shoulder hypertrophy", "shoulder workout"] },
   ];
   function uprosc(tekst) { return String(tekst || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ł/g, "l").replace(/\s+/g," ").trim(); }
+  // Tagi uzywane niemal wylacznie przez polskich tworcow. Slowa jak "hipertrofia" sa wspolne z portugalskim
+  // i hiszpanskim, wiec w trybie PL dokladamy tagi, ktore daja polska pule kandydatow. Maksymalnie 6 fraz.
+  const polskieTagi = ["siłownia", "trening siłowy", "fitness polska", "budowanie masy"];
   function rozszerz(temat, jezyk = "pl") {
     const tekst = String(temat || "").trim().slice(0, 100), klucz = uprosc(tekst);
     const grupa = slownik.find(g => g.klucze.some(k => uprosc(k) === klucz)) || slownik.find(g => [...g.pl,...g.en].some(k=>uprosc(k)===klucz));
-    if (!grupa) return { frazy: tekst ? [tekst] : [], przetlumaczone: false };
-    return { frazy: [...new Set([...(jezyk !== "en" ? grupa.pl : []), ...(jezyk !== "pl" ? grupa.en : [])])], przetlumaczone: true };
+    const wlasne = grupa ? [...new Set([...(jezyk !== "en" ? grupa.pl : []), ...(jezyk !== "pl" ? grupa.en : [])])] : (tekst ? [tekst] : []);
+    const frazy = jezyk === "pl" && wlasne.length ? [...new Set([...wlasne.slice(0, 2), ...polskieTagi])].slice(0, 6) : wlasne;
+    return { frazy, przetlumaczone: !!grupa, polskie_tagi: jezyk === "pl" && wlasne.length > 0 };
   }
   // Rozpoznawanie jezyka opisu. Wynik: "pl", "en", "inne" albo null (za malo danych).
   // Sygnaly: alfabet (dewanagari, cyrylica itd. = inne), polskie znaki diakrytyczne, slowa funkcyjne 10 jezykow.
